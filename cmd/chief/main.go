@@ -553,7 +553,7 @@ Commands:
   help                      Show this help message
 
 Global Options:
-  --agent <provider>        Agent CLI to use: claude (default) or codex
+  --agent <provider>        Agent CLI to use: claude (default), codex, or opencode
   --agent-path <path>       Custom path to agent CLI binary
   --max-iterations N, -n N  Set maximum iterations (default: dynamic)
   --no-retry                Disable auto-retry on agent crashes
