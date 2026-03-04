@@ -107,6 +107,35 @@ func TestResolve_normalize(t *testing.T) {
 	}
 }
 
+func TestResolve_opencode(t *testing.T) {
+	// Test OpenCode provider resolution
+	got := mustResolve(t, "opencode", "", nil)
+	if got.Name() != "OpenCode" {
+		t.Errorf("Resolve(opencode) name = %q, want OpenCode", got.Name())
+	}
+	if got.CLIPath() != "opencode" {
+		t.Errorf("Resolve(opencode) CLIPath = %q, want opencode", got.CLIPath())
+	}
+
+	// Test OpenCode with custom path
+	got = mustResolve(t, "opencode", "/usr/local/bin/opencode", nil)
+	if got.CLIPath() != "/usr/local/bin/opencode" {
+		t.Errorf("Resolve(opencode, /usr/local/bin/opencode) CLIPath = %q, want /usr/local/bin/opencode", got.CLIPath())
+	}
+
+	// Test from config
+	cfg := &config.Config{}
+	cfg.Agent.Provider = "opencode"
+	cfg.Agent.CLIPath = "/opt/opencode"
+	got = mustResolve(t, "", "", cfg)
+	if got.Name() != "OpenCode" {
+		t.Errorf("Resolve(_, _, config opencode) name = %q, want OpenCode", got.Name())
+	}
+	if got.CLIPath() != "/opt/opencode" {
+		t.Errorf("Resolve(_, _, config opencode) CLIPath = %q, want /opt/opencode", got.CLIPath())
+	}
+}
+
 func TestResolve_unknownProvider(t *testing.T) {
 	_, err := Resolve("typo", "", nil)
 	if err == nil {

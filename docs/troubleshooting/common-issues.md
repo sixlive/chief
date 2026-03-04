@@ -8,7 +8,7 @@ Solutions to frequently encountered problems.
 
 ## Agent CLI Not Found
 
-**Symptom:** Error that the agent CLI (Claude or Codex) is not found.
+**Symptom:** Error that the agent CLI (Claude, Codex, or OpenCode) is not found.
 
 ```
 Error: Claude CLI not found in PATH. Install it or set agent.cliPath in .chief/config.yaml
@@ -16,6 +16,10 @@ Error: Claude CLI not found in PATH. Install it or set agent.cliPath in .chief/c
 or
 ```
 Error: Codex CLI not found in PATH. Install it or set agent.cliPath in .chief/config.yaml
+```
+or
+```
+Error: OpenCode CLI not found in PATH. Install it or set agent.cliPath in .chief/config.yaml
 ```
 
 **Cause:** The chosen agent CLI isn't installed or isn't in your PATH.
@@ -33,6 +37,13 @@ Error: Codex CLI not found in PATH. Install it or set agent.cliPath in .chief/co
     cliPath: /usr/local/bin/codex
   ```
   Verify with `codex --version` (or your `cliPath`).
+- **OpenCode:** Install [OpenCode CLI](https://opencode.ai/docs/) and ensure `opencode` is in PATH, or set the path in config:
+  ```yaml
+  agent:
+    provider: opencode
+    cliPath: /usr/local/bin/opencode
+  ```
+  Verify with `opencode --version` (or your `cliPath`).
 
 ## Permission Denied
 
@@ -52,7 +63,7 @@ Chief automatically runs Claude with permission prompts disabled for autonomous 
 
 **Solution:**
 
-1. Check the agent log for errors (e.g. `claude.log` or `codex.log` in the PRD directory):
+1. Check the agent log for errors (e.g. `claude.log`, `codex.log`, or `opencode.log` in the PRD directory):
    ```bash
    tail -100 .chief/prds/your-prd/claude.log
    ```
@@ -76,7 +87,7 @@ Chief automatically runs Claude with permission prompts disabled for autonomous 
 
 **Solution:**
 
-1. Check the agent log (e.g. `claude.log` or `codex.log`) for what the agent is doing:
+1. Check the agent log (e.g. `claude.log`, `codex.log`, or `opencode.log`) for what the agent is doing:
    ```bash
    tail -f .chief/prds/your-prd/claude.log
    ```
@@ -107,7 +118,7 @@ Chief automatically runs Claude with permission prompts disabled for autonomous 
 
 2. Or investigate why it's taking so many iterations:
    - Story too complex? Split it
-   - Stuck in a loop? Check the agent log (`claude.log` or `codex.log`)
+   - Stuck in a loop? Check the agent log (`claude.log`, `codex.log`, or `opencode.log`)
    - Unclear acceptance criteria? Clarify them
 
 ## "No PRD Found"
@@ -249,4 +260,4 @@ If none of these solutions help:
 3. Open a new issue with:
    - Chief version (`chief --version`)
    - Your `prd.json` (sanitized)
-   - Relevant agent log excerpts (e.g. `claude.log` or `codex.log`)
+   - Relevant agent log excerpts (e.g. `claude.log`, `codex.log`, or `opencode.log`)

@@ -8,7 +8,7 @@ Chief is distributed as a single binary with no runtime dependencies. Choose you
 
 ## Prerequisites
 
-Chief needs an agent CLI: **Claude Code** (default) or **Codex**. Install at least one and authenticate.
+Chief needs an agent CLI: **Claude Code** (default), **Codex**, or **OpenCode**. Install at least one and authenticate.
 
 ### Option A: Claude Code CLI (default)
 
@@ -43,6 +43,18 @@ To use [OpenAI Codex CLI](https://developers.openai.com/codex/cli/reference) ins
 
 ::: tip Verify Codex
 Run `codex --version` (or your custom path) to confirm Codex is available.
+:::
+
+### Option C: OpenCode CLI
+
+To use [OpenCode CLI](https://opencode.ai) as an alternative:
+
+1. Install OpenCode per the [official docs](https://opencode.ai/docs/).
+2. Ensure `opencode` is on your PATH, or set `agent.cliPath` in `.chief/config.yaml` (see [Configuration](/reference/configuration#agent)).
+3. Run Chief with `chief --agent opencode` or set `CHIEF_AGENT=opencode`, or set `agent.provider: opencode` in `.chief/config.yaml`.
+
+::: tip Verify OpenCode
+Run `opencode --version` (or your custom path) to confirm OpenCode is available.
 :::
 
 ### Optional: GitHub CLI (`gh`)
