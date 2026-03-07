@@ -122,6 +122,40 @@ func listAvailablePRDs() []string {
 	return names
 }
 
+// parseAgentFlags extracts --agent and --agent-path from args[startIdx:],
+// returning the agent name, agent path, remaining args (with agent flags removed),
+// and the updated index offsets. It exits on missing values.
+func parseAgentFlags(args []string, startIdx int) (agentName, agentPath string, remaining []string) {
+	for i := startIdx; i < len(args); i++ {
+		arg := args[i]
+		switch {
+		case arg == "--agent":
+			if i+1 < len(args) {
+				i++
+				agentName = args[i]
+			} else {
+				fmt.Fprintf(os.Stderr, "Error: --agent requires a value (claude, codex, or opencode)\n")
+				os.Exit(1)
+			}
+		case strings.HasPrefix(arg, "--agent="):
+			agentName = strings.TrimPrefix(arg, "--agent=")
+		case arg == "--agent-path":
+			if i+1 < len(args) {
+				i++
+				agentPath = args[i]
+			} else {
+				fmt.Fprintf(os.Stderr, "Error: --agent-path requires a value\n")
+				os.Exit(1)
+			}
+		case strings.HasPrefix(arg, "--agent-path="):
+			agentPath = strings.TrimPrefix(arg, "--agent-path=")
+		default:
+			remaining = append(remaining, arg)
+		}
+	}
+	return
+}
+
 // parseTUIFlags parses command-line flags for TUI mode
 func parseTUIFlags() *TUIOptions {
 	opts := &TUIOptions{
@@ -132,6 +166,9 @@ func parseTUIFlags() *TUIOptions {
 		Force:         false,
 		NoRetry:       false,
 	}
+
+	// Pre-extract agent flags so they don't interfere with positional arg parsing
+	opts.Agent, opts.AgentPath, _ = parseAgentFlags(os.Args, 1)
 
 	for i := 1; i < len(os.Args); i++ {
 		arg := os.Args[i]
@@ -151,26 +188,10 @@ func parseTUIFlags() *TUIOptions {
 			opts.Force = true
 		case arg == "--no-retry":
 			opts.NoRetry = true
-		case arg == "--agent":
-			if i+1 < len(os.Args) {
-				i++
-				opts.Agent = os.Args[i]
-			} else {
-				fmt.Fprintf(os.Stderr, "Error: --agent requires a value (claude or codex)\n")
-				os.Exit(1)
-			}
-		case strings.HasPrefix(arg, "--agent="):
-			opts.Agent = strings.TrimPrefix(arg, "--agent=")
-		case arg == "--agent-path":
-			if i+1 < len(os.Args) {
-				i++
-				opts.AgentPath = os.Args[i]
-			} else {
-				fmt.Fprintf(os.Stderr, "Error: --agent-path requires a value\n")
-				os.Exit(1)
-			}
-		case strings.HasPrefix(arg, "--agent-path="):
-			opts.AgentPath = strings.TrimPrefix(arg, "--agent-path=")
+		case arg == "--agent" || arg == "--agent-path":
+			i++ // skip value (already parsed by parseAgentFlags)
+		case strings.HasPrefix(arg, "--agent=") || strings.HasPrefix(arg, "--agent-path="):
+			// already parsed by parseAgentFlags
 		case arg == "--max-iterations" || arg == "-n":
 			// Next argument should be the number
 			if i+1 < len(os.Args) {
@@ -234,44 +255,21 @@ func parseTUIFlags() *TUIOptions {
 
 func runNew() {
 	opts := cmd.NewOptions{}
-	flagAgent, flagPath := "", ""
-	var positional []string
 
 	// Parse arguments: chief new [name] [context...] [--agent X] [--agent-path X]
-	for i := 2; i < len(os.Args); i++ {
-		arg := os.Args[i]
-		switch {
-		case arg == "--agent":
-			if i+1 < len(os.Args) {
-				i++
-				flagAgent = os.Args[i]
-			} else {
-				fmt.Fprintf(os.Stderr, "Error: --agent requires a value (claude or codex)\n")
-				os.Exit(1)
-			}
-		case strings.HasPrefix(arg, "--agent="):
-			flagAgent = strings.TrimPrefix(arg, "--agent=")
-		case arg == "--agent-path":
-			if i+1 < len(os.Args) {
-				i++
-				flagPath = os.Args[i]
-			} else {
-				fmt.Fprintf(os.Stderr, "Error: --agent-path requires a value\n")
-				os.Exit(1)
-			}
-		case strings.HasPrefix(arg, "--agent-path="):
-			flagPath = strings.TrimPrefix(arg, "--agent-path=")
-		case strings.HasPrefix(arg, "-"):
-			// skip unknown flags
-		default:
-			positional = append(positional, arg)
+	flagAgent, flagPath, positional := parseAgentFlags(os.Args, 2)
+	// Filter out remaining flags, keep only positional args
+	var args []string
+	for _, a := range positional {
+		if !strings.HasPrefix(a, "-") {
+			args = append(args, a)
 		}
 	}
-	if len(positional) > 0 {
-		opts.Name = positional[0]
+	if len(args) > 0 {
+		opts.Name = args[0]
 	}
-	if len(positional) > 1 {
-		opts.Context = strings.Join(positional[1:], " ")
+	if len(args) > 1 {
+		opts.Context = strings.Join(args[1:], " ")
 	}
 
 	opts.Provider = resolveProvider(flagAgent, flagPath)
@@ -283,36 +281,15 @@ func runNew() {
 
 func runEdit() {
 	opts := cmd.EditOptions{}
-	flagAgent, flagPath := "", ""
 
 	// Parse arguments: chief edit [name] [--merge] [--force] [--agent X] [--agent-path X]
-	for i := 2; i < len(os.Args); i++ {
-		arg := os.Args[i]
+	flagAgent, flagPath, remaining := parseAgentFlags(os.Args, 2)
+	for _, arg := range remaining {
 		switch {
 		case arg == "--merge":
 			opts.Merge = true
 		case arg == "--force":
 			opts.Force = true
-		case arg == "--agent":
-			if i+1 < len(os.Args) {
-				i++
-				flagAgent = os.Args[i]
-			} else {
-				fmt.Fprintf(os.Stderr, "Error: --agent requires a value (claude or codex)\n")
-				os.Exit(1)
-			}
-		case strings.HasPrefix(arg, "--agent="):
-			flagAgent = strings.TrimPrefix(arg, "--agent=")
-		case arg == "--agent-path":
-			if i+1 < len(os.Args) {
-				i++
-				flagPath = os.Args[i]
-			} else {
-				fmt.Fprintf(os.Stderr, "Error: --agent-path requires a value\n")
-				os.Exit(1)
-			}
-		case strings.HasPrefix(arg, "--agent-path="):
-			flagPath = strings.TrimPrefix(arg, "--agent-path=")
 		default:
 			if opts.Name == "" && !strings.HasPrefix(arg, "-") {
 				opts.Name = arg

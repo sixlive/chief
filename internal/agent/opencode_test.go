@@ -55,7 +55,7 @@ func TestOpenCodeProvider_LoopCommand(t *testing.T) {
 }
 
 func TestOpenCodeProvider_ConvertCommand(t *testing.T) {
-	p := NewOpenCodeProvider("opencode")
+	p := NewOpenCodeProvider("/bin/opencode")
 	cmd, mode, outPath, err := p.ConvertCommand("/prd/dir", "convert prompt")
 	if err != nil {
 		t.Fatalf("ConvertCommand unexpected error: %v", err)
@@ -66,16 +66,27 @@ func TestOpenCodeProvider_ConvertCommand(t *testing.T) {
 	if outPath != "" {
 		t.Errorf("ConvertCommand outPath = %q, want empty string", outPath)
 	}
-	if cmd.Path != "opencode" {
-		t.Errorf("ConvertCommand Path = %q, want opencode", cmd.Path)
-	}
 	if cmd.Dir != "/prd/dir" {
 		t.Errorf("ConvertCommand Dir = %q, want /prd/dir", cmd.Dir)
+	}
+	// Prompt is passed as CLI argument, not stdin
+	if cmd.Stdin != nil {
+		t.Error("ConvertCommand Stdin should be nil (prompt passed as arg)")
+	}
+	// Check args contain the prompt after "--"
+	wantArgs := []string{"/bin/opencode", "run", "--format", "json", "--", "convert prompt"}
+	if len(cmd.Args) != len(wantArgs) {
+		t.Fatalf("ConvertCommand Args = %v, want %v", cmd.Args, wantArgs)
+	}
+	for i, w := range wantArgs {
+		if cmd.Args[i] != w {
+			t.Errorf("ConvertCommand Args[%d] = %q, want %q", i, cmd.Args[i], w)
+		}
 	}
 }
 
 func TestOpenCodeProvider_FixJSONCommand(t *testing.T) {
-	p := NewOpenCodeProvider("opencode")
+	p := NewOpenCodeProvider("/bin/opencode")
 	cmd, mode, outPath, err := p.FixJSONCommand("fix prompt")
 	if err != nil {
 		t.Fatalf("FixJSONCommand unexpected error: %v", err)
@@ -86,8 +97,50 @@ func TestOpenCodeProvider_FixJSONCommand(t *testing.T) {
 	if outPath != "" {
 		t.Errorf("FixJSONCommand outPath = %q, want empty string", outPath)
 	}
-	if cmd.Path != "opencode" {
-		t.Errorf("FixJSONCommand Path = %q, want opencode", cmd.Path)
+	// Prompt is passed as CLI argument, not stdin
+	if cmd.Stdin != nil {
+		t.Error("FixJSONCommand Stdin should be nil (prompt passed as arg)")
+	}
+}
+
+func TestOpenCodeProvider_CleanOutput_PlainText(t *testing.T) {
+	p := NewOpenCodeProvider("")
+	// Non-NDJSON input should be returned as-is
+	input := `{"project": "test"}`
+	got := p.CleanOutput(input)
+	if got != input {
+		t.Errorf("CleanOutput(plain) = %q, want %q", got, input)
+	}
+}
+
+func TestOpenCodeProvider_CleanOutput_NDJSON(t *testing.T) {
+	p := NewOpenCodeProvider("")
+	input := `{"type":"step_start","timestamp":1234,"sessionID":"ses_1"}
+{"type":"text","timestamp":1235,"sessionID":"ses_1","part":{"id":"prt_1","type":"text","text":"hello world"}}
+{"type":"step_finish","timestamp":1236,"sessionID":"ses_1","part":{"id":"prt_2","reason":"stop"}}`
+	got := p.CleanOutput(input)
+	if got != "hello world" {
+		t.Errorf("CleanOutput(ndjson) = %q, want %q", got, "hello world")
+	}
+}
+
+func TestOpenCodeProvider_CleanOutput_LastTextWins(t *testing.T) {
+	p := NewOpenCodeProvider("")
+	input := `{"type":"text","timestamp":1,"sessionID":"s","part":{"id":"a","type":"text","text":"first"}}
+{"type":"text","timestamp":2,"sessionID":"s","part":{"id":"b","type":"text","text":"second"}}`
+	got := p.CleanOutput(input)
+	if got != "second" {
+		t.Errorf("CleanOutput(multi-text) = %q, want %q", got, "second")
+	}
+}
+
+func TestOpenCodeProvider_CleanOutput_NoTextEvent(t *testing.T) {
+	p := NewOpenCodeProvider("")
+	input := `{"type":"step_start","timestamp":1,"sessionID":"s"}
+{"type":"step_finish","timestamp":2,"sessionID":"s","part":{"id":"a","reason":"stop"}}`
+	got := p.CleanOutput(input)
+	if got != input {
+		t.Errorf("CleanOutput(no-text) should return original, got %q", got)
 	}
 }
 

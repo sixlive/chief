@@ -4,12 +4,57 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 
 	"github.com/minicodemonkey/chief/embed"
 	"github.com/minicodemonkey/chief/internal/loop"
 	"github.com/minicodemonkey/chief/internal/prd"
 )
+
+// waitFunc is the signature for prd.WaitWithPanel / prd.WaitWithSpinner.
+type waitFunc func(cmd *exec.Cmd, title, message string, stderr *bytes.Buffer) error
+
+// runAgentCommand runs a provider command, captures output (stdout or file), and
+// displays a progress indicator via the supplied wait function.
+func runAgentCommand(
+	providerName string,
+	cmd *exec.Cmd,
+	mode loop.OutputMode,
+	outPath string,
+	wait waitFunc,
+	title, activity string,
+) (string, error) {
+	var stdout, stderr bytes.Buffer
+	if mode == loop.OutputStdout {
+		cmd.Stdout = &stdout
+	} else {
+		cmd.Stdout = &bytes.Buffer{}
+	}
+	cmd.Stderr = &stderr
+
+	if err := cmd.Start(); err != nil {
+		if outPath != "" {
+			_ = os.Remove(outPath)
+		}
+		return "", fmt.Errorf("failed to start %s: %w", providerName, err)
+	}
+	if err := wait(cmd, title, activity, &stderr); err != nil {
+		if outPath != "" {
+			_ = os.Remove(outPath)
+		}
+		return "", err
+	}
+	if mode == loop.OutputFromFile && outPath != "" {
+		defer os.Remove(outPath)
+		data, err := os.ReadFile(outPath)
+		if err != nil {
+			return "", fmt.Errorf("failed to read output from %s: %w", outPath, err)
+		}
+		return string(data), nil
+	}
+	return stdout.String(), nil
+}
 
 // runConversionWithProvider runs the agent to convert prd.md to JSON.
 func runConversionWithProvider(provider loop.Provider, absPRDDir string) (string, error) {
@@ -18,36 +63,7 @@ func runConversionWithProvider(provider loop.Provider, absPRDDir string) (string
 	if err != nil {
 		return "", fmt.Errorf("failed to prepare conversion command: %w", err)
 	}
-
-	var stdout, stderr bytes.Buffer
-	if mode == loop.OutputStdout {
-		cmd.Stdout = &stdout
-	} else {
-		cmd.Stdout = &bytes.Buffer{}
-	}
-	cmd.Stderr = &stderr
-
-	if err := cmd.Start(); err != nil {
-		if outPath != "" {
-			_ = os.Remove(outPath)
-		}
-		return "", fmt.Errorf("failed to start %s: %w", provider.Name(), err)
-	}
-	if err := prd.WaitWithPanel(cmd, "Converting PRD", "Analyzing PRD...", &stderr); err != nil {
-		if outPath != "" {
-			os.Remove(outPath)
-		}
-		return "", err
-	}
-	if mode == loop.OutputFromFile && outPath != "" {
-		defer os.Remove(outPath)
-		data, err := os.ReadFile(outPath)
-		if err != nil {
-			return "", fmt.Errorf("failed to read conversion output: %w", err)
-		}
-		return string(data), nil
-	}
-	return stdout.String(), nil
+	return runAgentCommand(provider.Name(), cmd, mode, outPath, prd.WaitWithPanel, "Converting PRD", "Analyzing PRD...")
 }
 
 // runFixJSONWithProvider runs the agent to fix invalid JSON.
@@ -56,34 +72,5 @@ func runFixJSONWithProvider(provider loop.Provider, prompt string) (string, erro
 	if err != nil {
 		return "", fmt.Errorf("failed to prepare fix command: %w", err)
 	}
-
-	var stdout, stderr bytes.Buffer
-	if mode == loop.OutputStdout {
-		cmd.Stdout = &stdout
-	} else {
-		cmd.Stdout = &bytes.Buffer{}
-	}
-	cmd.Stderr = &stderr
-
-	if err := cmd.Start(); err != nil {
-		if outPath != "" {
-			_ = os.Remove(outPath)
-		}
-		return "", fmt.Errorf("failed to start %s: %w", provider.Name(), err)
-	}
-	if err := prd.WaitWithSpinner(cmd, "Fixing JSON", "Fixing prd.json...", &stderr); err != nil {
-		if outPath != "" {
-			os.Remove(outPath)
-		}
-		return "", err
-	}
-	if mode == loop.OutputFromFile && outPath != "" {
-		defer os.Remove(outPath)
-		data, err := os.ReadFile(outPath)
-		if err != nil {
-			return "", fmt.Errorf("failed to read fix output: %w", err)
-		}
-		return string(data), nil
-	}
-	return stdout.String(), nil
+	return runAgentCommand(provider.Name(), cmd, mode, outPath, prd.WaitWithSpinner, "Fixing JSON", "Fixing prd.json...")
 }

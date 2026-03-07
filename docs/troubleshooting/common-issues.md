@@ -57,15 +57,15 @@ Chief automatically runs Claude with permission prompts disabled for autonomous 
 
 ## PRD Not Updating
 
-**Symptom:** Stories stay incomplete even though Claude seems to finish.
+**Symptom:** Stories stay incomplete even though the agent seems to finish.
 
-**Cause:** Claude didn't output the completion signal, or file watching failed.
+**Cause:** The agent didn't output the completion signal, or file watching failed.
 
 **Solution:**
 
-1. Check the agent log for errors (e.g. `claude.log`, `codex.log`, or `opencode.log` in the PRD directory):
+1. Check the agent log for errors (the log file matches your agent: `claude.log`, `codex.log`, or `opencode.log`):
    ```bash
-   tail -100 .chief/prds/your-prd/claude.log
+   tail -100 .chief/prds/your-prd/claude.log  # or codex.log / opencode.log
    ```
 
 2. Manually mark story complete if appropriate:
@@ -83,13 +83,13 @@ Chief automatically runs Claude with permission prompts disabled for autonomous 
 
 **Symptom:** Chief runs but doesn't make progress on stories.
 
-**Cause:** Various—Claude may be stuck, context too large, or PRD unclear.
+**Cause:** Various—the agent may be stuck, context too large, or PRD unclear.
 
 **Solution:**
 
-1. Check the agent log (e.g. `claude.log`, `codex.log`, or `opencode.log`) for what the agent is doing:
+1. Check the agent log for what the agent is doing:
    ```bash
-   tail -f .chief/prds/your-prd/claude.log
+   tail -f .chief/prds/your-prd/claude.log  # or codex.log / opencode.log
    ```
 
 2. Simplify the current story's acceptance criteria

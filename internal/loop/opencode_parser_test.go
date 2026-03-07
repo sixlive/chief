@@ -21,11 +21,42 @@ func TestParseLineOpenCode_toolUseCompleted(t *testing.T) {
 	if ev == nil {
 		t.Fatal("expected event, got nil")
 	}
+	if ev.Type != EventToolResult {
+		t.Errorf("expected EventToolResult, got %v", ev.Type)
+	}
+	if ev.Tool != "bash" {
+		t.Errorf("expected Tool bash, got %q", ev.Tool)
+	}
+	if ev.Text != "hello\n" {
+		t.Errorf("expected Text hello\\n, got %q", ev.Text)
+	}
+}
+
+func TestParseLineOpenCode_toolUseStarting(t *testing.T) {
+	line := `{"type":"tool_use","timestamp":1767036061100,"sessionID":"ses_test","part":{"id":"prt_1","type":"tool","tool":"bash","callID":"abc123","state":{"status":"pending","input":{"command":"ls"}}}}`
+	ev := ParseLineOpenCode(line)
+	if ev == nil {
+		t.Fatal("expected event, got nil")
+	}
 	if ev.Type != EventToolStart {
 		t.Errorf("expected EventToolStart, got %v", ev.Type)
 	}
 	if ev.Tool != "bash" {
 		t.Errorf("expected Tool bash, got %q", ev.Tool)
+	}
+}
+
+func TestParseLineOpenCode_toolUseNoState(t *testing.T) {
+	line := `{"type":"tool_use","timestamp":1767036061100,"sessionID":"ses_test","part":{"id":"prt_1","type":"tool","tool":"read"}}`
+	ev := ParseLineOpenCode(line)
+	if ev == nil {
+		t.Fatal("expected event, got nil")
+	}
+	if ev.Type != EventToolStart {
+		t.Errorf("expected EventToolStart, got %v", ev.Type)
+	}
+	if ev.Tool != "read" {
+		t.Errorf("expected Tool read, got %q", ev.Tool)
 	}
 }
 
