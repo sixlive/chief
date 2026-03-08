@@ -6,26 +6,30 @@ description: Complete guide to Chief's PRD format including prd.md and prd.json 
 
 Chief uses a structured PRD format with two files: a human-readable markdown file (`prd.md`) and a machine-readable JSON file (`prd.json`). Together, they give Chief everything it needs to autonomously build your feature.
 
+::: info Multi-agent support
+Chief supports multiple agent backends: **Claude Code** (default), **Codex CLI**, and **OpenCode CLI**. This page uses "the agent" to refer to whichever backend you've configured. See [Configuration](/reference/configuration) for setup details.
+:::
+
 ## File Structure
 
 Each PRD lives in its own subdirectory inside `.chief/prds/`:
 
 ```
 .chief/prds/my-feature/
-├── prd.md        # Human-readable context for Claude
+├── prd.md        # Human-readable context for the agent
 ├── prd.json      # Structured data Chief reads and updates
 ├── progress.md   # Auto-generated progress log
-└── claude.log    # Raw Claude output from each iteration
+└── claude.log    # Raw agent output from each iteration
 ```
 
 - **`prd.md`** — Written by you. Provides context, background, and guidance.
 - **`prd.json`** — The source of truth. Chief reads, updates, and drives execution from this file.
-- **`progress.md`** — Written by Claude. Tracks what was done, what changed, and what was learned.
-- **`claude.log`** — Written by Chief. Raw output from Claude for debugging.
+- **`progress.md`** — Written by the agent. Tracks what was done, what changed, and what was learned.
+- **`claude.log`** (or `codex.log` / `opencode.log`) — Written by Chief. Raw output from the agent for debugging.
 
 ## prd.md — The Human-Readable File
 
-The markdown file is your chance to give Claude context that doesn't fit into structured fields. Write whatever helps Claude understand the project — there's no required format.
+The markdown file is your chance to give the agent context that doesn't fit into structured fields. Write whatever helps the agent understand the project — there's no required format.
 
 ### What to Include
 
@@ -61,10 +65,10 @@ Users need to register, log in, reset passwords, and manage sessions.
 - API route pattern: `src/routes/health.ts`
 ```
 
-This file is included in Claude's context but never parsed programmatically. Claude reads it to understand what you're building and how.
+This file is included in the agent's context but never parsed programmatically. The agent reads it to understand what you're building and how.
 
 ::: tip
-The better your `prd.md`, the better Claude's output. Spend time here — it pays off across every story.
+The better your `prd.md`, the better the agent's output. Spend time here — it pays off across every story.
 :::
 
 ## prd.json — The Machine-Readable File
@@ -88,10 +92,10 @@ Each story in the `userStories` array has the following fields:
 | `id` | `string` | Yes | — | Unique identifier (e.g., `US-001`). Appears in commit messages. |
 | `title` | `string` | Yes | — | Short, descriptive title. Keep under 50 characters. |
 | `description` | `string` | Yes | — | Full description. User story format recommended. |
-| `acceptanceCriteria` | `string[]` | Yes | — | List of requirements. Claude uses these to know when the story is done. |
+| `acceptanceCriteria` | `string[]` | Yes | — | List of requirements. The agent uses these to know when the story is done. |
 | `priority` | `number` | Yes | — | Execution order. Lower number = higher priority. |
 | `passes` | `boolean` | Yes | `false` | Whether the story has been completed and verified. |
-| `inProgress` | `boolean` | Yes | `false` | Whether Claude is currently working on this story. |
+| `inProgress` | `boolean` | Yes | `false` | Whether the agent is currently working on this story. |
 
 ### Minimal Example
 
@@ -161,7 +165,7 @@ Here's a complete `prd.json` with annotations explaining each part:
   // The project name — shown in the TUI header and logs
   "project": "User Authentication",
 
-  // A brief description — helps Claude understand scope
+  // A brief description — helps the agent understand scope
   "description": "Complete auth system with login, registration, and password reset",
 
   "userStories": [
@@ -172,10 +176,10 @@ Here's a complete `prd.json` with annotations explaining each part:
       // Short title — keep it under 50 chars for clean commits
       "title": "User Registration",
 
-      // Description — user story format gives Claude clear context
+      // Description — user story format gives the agent clear context
       "description": "As a new user, I want to register an account so that I can access the application.",
 
-      // Acceptance criteria — Claude checks these off as it works
+      // Acceptance criteria — the agent checks these off as it works
       // Each item should be specific and verifiable
       "acceptanceCriteria": [
         "Registration form with email and password fields",
@@ -191,7 +195,7 @@ Here's a complete `prd.json` with annotations explaining each part:
       // Chief sets this to true when the story passes all checks
       "passes": false,
 
-      // Chief sets this to true while Claude is working on it
+      // Chief sets this to true while the agent is working on it
       "inProgress": false
     },
     {
@@ -235,7 +239,7 @@ JSON doesn't support comments. The annotations above are for illustration only �
 
 ### Write Specific Acceptance Criteria
 
-Each criterion should be concrete and verifiable. Claude uses these to determine what to build and when the story is done.
+Each criterion should be concrete and verifiable. The agent uses these to determine what to build and when the story is done.
 
 ```json
 // ✓ Good — specific and testable
@@ -282,7 +286,7 @@ A story should represent one logical piece of work. If a story has more than 5�
 
 ### Order Stories by Dependency
 
-Use priority to ensure foundational stories are completed before dependent ones. Claude works through stories sequentially, so earlier stories can set up what later stories need.
+Use priority to ensure foundational stories are completed before dependent ones. The agent works through stories sequentially, so earlier stories can set up what later stories need.
 
 ```json
 [
@@ -301,7 +305,7 @@ Story IDs appear in commit messages (`feat: [US-001] - User Registration`). Pick
 - `AUTH-001`, `AUTH-002` — feature-scoped prefixes
 - `BUG-001`, `FIX-001` — for bug fix PRDs
 
-### Give Claude Context in prd.md
+### Give the Agent Context in prd.md
 
 The more context you provide in `prd.md`, the better the output. Include:
 

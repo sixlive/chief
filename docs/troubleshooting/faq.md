@@ -10,7 +10,7 @@ Frequently asked questions about Chief.
 
 ### What is Chief?
 
-Chief is an autonomous PRD agent. You write a Product Requirements Document with user stories, run Chief, and watch as Claude builds your code—story by story.
+Chief is an autonomous PRD agent. You write a Product Requirements Document with user stories, run Chief, and watch as your code gets built—story by story.
 
 ### Why "Chief"?
 
@@ -18,11 +18,14 @@ Named after Chief Wiggum from The Simpsons (Ralph Wiggum's dad). Chief orchestra
 
 ### Is Chief free?
 
-Chief itself is open source and free. However, it uses Claude Code, which requires a Claude Pro subscription or Anthropic API access.
+Chief itself is open source and free. However, it requires an agent CLI with its own access:
+- **Claude Code** (default) — requires a Claude Pro subscription or Anthropic API access
+- **Codex CLI** — requires an OpenAI API key
+- **OpenCode CLI** — supports multiple model providers
 
 ### What models does Chief use?
 
-Chief uses whatever model is configured in Claude Code.
+Chief uses whatever model is configured in your agent CLI. Each agent has its own model selection—see your agent's documentation for details.
 
 ## Usage
 
@@ -102,7 +105,7 @@ Yes. During first-time setup, Chief asks if you want to enable auto-push and aut
 
 ### Why stream-json?
 
-Claude Code outputs JSON in a streaming format. Chief uses stream-json to parse this in real-time, allowing it to:
+The agent outputs JSON in a streaming format. Chief uses stream-json to parse this in real-time, allowing it to:
 - Display progress as it happens
 - React to completion signals immediately
 - Handle large outputs efficiently
@@ -114,7 +117,7 @@ Conventional commits (`feat:`, `fix:`, etc.) provide:
 - Easy to review changes per-story
 - Works with changelog generators
 
-### What if Claude makes a mistake?
+### What if the agent makes a mistake?
 
 Git is your safety net. Each story is committed separately, so you can:
 
@@ -132,11 +135,11 @@ chief  # then press 's' to start
 
 ### Does Chief work with any language?
 
-Yes. Chief doesn't know or care what language you're using. It passes your PRD to Claude, which handles the implementation.
+Yes. Chief doesn't know or care what language you're using. It passes your PRD to the agent, which handles the implementation.
 
 ### How does Chief handle tests?
 
-Chief instructs Claude to run quality checks (tests, lint, typecheck) before committing. Claude infers the appropriate commands from your codebase (e.g., `npm test`, `pytest`).
+Chief instructs the agent to run quality checks (tests, lint, typecheck) before committing. The agent infers the appropriate commands from your codebase (e.g., `npm test`, `pytest`).
 
 ## Troubleshooting
 

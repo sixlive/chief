@@ -21,7 +21,7 @@ your-project/
     │       ├── prd.md          # Human-readable PRD (you write this)
     │       ├── prd.json        # Machine-readable PRD (Chief reads/writes)
     │       ├── progress.md     # Progress log (Chief appends after each story)
-    │       └── claude.log      # Raw Claude output (for debugging)
+    │       └── claude.log      # Raw agent output (for debugging)
     └── worktrees/              # Isolated checkouts for parallel PRDs
         └── my-feature/         # Git worktree (full project checkout)
 ```
@@ -39,15 +39,15 @@ Every PRD lives in its own named folder under `.chief/prds/`. The folder name is
 chief my-feature
 ```
 
-Chief uses this folder as the working context for the entire run. All reads and writes happen within this folder — the PRD state, progress log, and Claude output are all scoped to the specific PRD being executed.
+Chief uses this folder as the working context for the entire run. All reads and writes happen within this folder — the PRD state, progress log, and agent output are all scoped to the specific PRD being executed.
 
 ## File Explanations
 
 ### `prd.md`
 
-The human-readable product requirements document. You write this file (or generate it with `chief new`). It contains context, background, technical notes, and anything else that helps Claude understand what to build.
+The human-readable product requirements document. You write this file (or generate it with `chief new`). It contains context, background, technical notes, and anything else that helps the agent understand what to build.
 
-This file is included in the prompt sent to Claude at the start of each iteration. Write it as if you're briefing a senior developer who's new to the project — the more context you provide, the better the output.
+This file is included in the prompt sent to the agent at the start of each iteration. Write it as if you're briefing a senior developer who's new to the project — the more context you provide, the better the output.
 
 ```markdown
 # My Feature
@@ -108,13 +108,13 @@ The `Codebase Patterns` section at the top of this file consolidates reusable pa
 
 ### `claude.log`
 
-Raw output from Claude Code during execution. This file captures everything Claude outputs, including tool calls, reasoning, and results. It's primarily useful for debugging when something goes wrong.
+Raw output from the agent during execution. This file captures everything the agent outputs, including tool calls, reasoning, and results. It's primarily useful for debugging when something goes wrong.
 
 This file can get large (multiple megabytes per run) and is regenerated on each execution. You typically don't need to read it unless you're investigating an issue.
 
 ## The `worktrees/` Subdirectory
 
-When you run multiple PRDs in parallel, each PRD can get its own isolated git worktree under `.chief/worktrees/`. A worktree is a full checkout of your project on a separate branch, so parallel Claude instances never conflict over files or git state.
+When you run multiple PRDs in parallel, each PRD can get its own isolated git worktree under `.chief/worktrees/`. A worktree is a full checkout of your project on a separate branch, so parallel agent instances never conflict over files or git state.
 
 ```
 .chief/worktrees/

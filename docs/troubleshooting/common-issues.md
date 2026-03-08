@@ -47,13 +47,13 @@ Error: OpenCode CLI not found in PATH. Install it or set agent.cliPath in .chief
 
 ## Permission Denied
 
-**Symptom:** Claude keeps asking for permission, disrupting autonomous flow.
+**Symptom:** The agent keeps asking for permission, disrupting autonomous flow.
 
-**Cause:** Claude Code requires explicit permission for file writes and command execution.
+**Cause:** Some agents (like Claude Code) require explicit permission for file writes and command execution.
 
 **Solution:**
 
-Chief automatically runs Claude with permission prompts disabled for autonomous operation. If you're still seeing permission issues, ensure you're running Chief (not Claude directly) and that your Claude Code installation is up to date.
+Chief automatically configures the agent for autonomous operation by disabling permission prompts. If you're still seeing permission issues, ensure you're running Chief (not the agent directly) and that your agent CLI is up to date.
 
 ## PRD Not Updating
 
@@ -107,7 +107,7 @@ Chief automatically runs Claude with permission prompts disabled for autonomous 
 
 **Symptom:** Chief stops with "max iterations reached" message.
 
-**Cause:** Claude hasn't completed after the iteration limit.
+**Cause:** The agent hasn't completed after the iteration limit.
 
 **Solution:**
 

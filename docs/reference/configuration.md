@@ -78,7 +78,7 @@ When you launch Chief for the first time in a project, you'll be prompted to con
 2. **Worktree setup command** — A shell command to run in new worktrees (e.g., installing dependencies)
 
 For the setup command, you can:
-- **Let Claude figure it out** (Recommended) — Claude analyzes your project and suggests appropriate setup commands
+- **Auto-detect** (Recommended) — The agent analyzes your project and suggests appropriate setup commands
 - **Enter manually** — Type a custom command
 - **Skip** — Leave it empty
 
@@ -108,9 +108,9 @@ Chief can use **Claude Code** (default), **Codex CLI**, or **OpenCode CLI** as t
 - **Environment:** `CHIEF_AGENT=opencode`, `CHIEF_AGENT_PATH=/path/to/opencode`
 - **CLI:** `chief --agent opencode --agent-path /path/to/opencode`
 
-## Claude Code Configuration
+## Agent-Specific Configuration
 
-When using Claude, Chief invokes Claude Code under the hood. Claude Code has its own configuration:
+Each agent has its own configuration. For example, when using Claude Code:
 
 ```bash
 # Authentication
@@ -124,10 +124,10 @@ See [Claude Code documentation](https://github.com/anthropics/claude-code) for d
 
 ## Permission Handling
 
-By default, Claude Code asks for permission before executing bash commands, writing files, and making network requests. Chief automatically disables these prompts when invoking Claude to enable autonomous operation.
+Some agents (like Claude Code) ask for permission before executing bash commands, writing files, and making network requests. Chief automatically configures the agent for autonomous operation by disabling these prompts.
 
 ::: warning
-Chief runs Claude with full permissions to modify your codebase. Only run Chief on PRDs you trust.
+Chief runs the agent with full permissions to modify your codebase. Only run Chief on PRDs you trust.
 
 For additional isolation, consider using [Claude Code's sandbox mode](https://docs.anthropic.com/en/docs/claude-code/sandboxing) or running Chief in a Docker container.
 :::

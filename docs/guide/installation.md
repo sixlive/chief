@@ -29,10 +29,6 @@ npx @anthropic-ai/claude-code login
 
 :::
 
-::: tip Verify Claude Code
-Run `claude --version` to confirm Claude Code is installed.
-:::
-
 ### Option B: Codex CLI
 
 To use [OpenAI Codex CLI](https://developers.openai.com/codex/cli/reference) instead of Claude:
@@ -41,10 +37,6 @@ To use [OpenAI Codex CLI](https://developers.openai.com/codex/cli/reference) ins
 2. Ensure `codex` is on your PATH, or set `agent.cliPath` in `.chief/config.yaml` (see [Configuration](/reference/configuration#agent)).
 3. Run Chief with `chief --agent codex` or set `CHIEF_AGENT=codex`, or set `agent.provider: codex` in `.chief/config.yaml`.
 
-::: tip Verify Codex
-Run `codex --version` (or your custom path) to confirm Codex is available.
-:::
-
 ### Option C: OpenCode CLI
 
 To use [OpenCode CLI](https://opencode.ai) as an alternative:
@@ -52,10 +44,6 @@ To use [OpenCode CLI](https://opencode.ai) as an alternative:
 1. Install OpenCode per the [official docs](https://opencode.ai/docs/).
 2. Ensure `opencode` is on your PATH, or set `agent.cliPath` in `.chief/config.yaml` (see [Configuration](/reference/configuration#agent)).
 3. Run Chief with `chief --agent opencode` or set `CHIEF_AGENT=opencode`, or set `agent.provider: opencode` in `.chief/config.yaml`.
-
-::: tip Verify OpenCode
-Run `opencode --version` (or your custom path) to confirm OpenCode is available.
-:::
 
 ### Optional: GitHub CLI (`gh`)
 

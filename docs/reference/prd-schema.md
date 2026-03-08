@@ -96,7 +96,7 @@ Full description of the story. User story format recommended but not required.
 
 ### acceptanceCriteria
 
-Array of strings, each describing a requirement. Claude uses these to know when the story is complete.
+Array of strings, each describing a requirement. The agent uses these to know when the story is complete.
 
 **Guidelines:**
 - Specific and testable
@@ -117,7 +117,7 @@ Boolean indicating if the story is complete. Chief updates this automatically.
 
 ### inProgress
 
-Boolean indicating if Claude is currently working on this story.
+Boolean indicating if the agent is currently working on this story.
 
 **Default:** `false`
 
