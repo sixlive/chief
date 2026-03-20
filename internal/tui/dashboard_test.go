@@ -24,7 +24,7 @@ func makeStories(n int) []prd.UserStory {
 		stories[i] = prd.UserStory{
 			ID:       fmt.Sprintf("US-%03d", i+1),
 			Title:    fmt.Sprintf("Story %d", i+1),
-			Priority: i + 1,
+			Priority: float64(i + 1),
 		}
 	}
 	return stories
