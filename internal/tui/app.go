@@ -927,6 +927,12 @@ func (a App) handleLoopEvent(prdName string, event loop.Event) (tea.Model, tea.C
 	case loop.EventIterationStart:
 		if isCurrentPRD {
 			a.lastActivity = "Starting iteration..."
+			// Start tracking story timing if this is a new story
+			if event.StoryID != "" && event.StoryID != a.currentStoryID {
+				a.finalizeStoryTiming()
+				a.currentStoryID = event.StoryID
+				a.currentStoryStart = time.Now()
+			}
 		}
 	case loop.EventAssistantText:
 		if isCurrentPRD {

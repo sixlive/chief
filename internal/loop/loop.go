@@ -191,10 +191,14 @@ func (l *Loop) Run(ctx context.Context) error {
 			l.mu.Unlock()
 		}
 
-		// Send iteration start event
+		// Send iteration start event with current story ID
+		l.mu.Lock()
+		iterStoryID := l.currentStoryID
+		l.mu.Unlock()
 		l.events <- Event{
 			Type:      EventIterationStart,
 			Iteration: currentIter,
+			StoryID:   iterStoryID,
 		}
 
 		// Run a single iteration with retry logic
