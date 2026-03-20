@@ -30,7 +30,7 @@ func (p *CodexProvider) CLIPath() string { return p.cliPath }
 
 // LoopCommand implements loop.Provider.
 func (p *CodexProvider) LoopCommand(ctx context.Context, prompt, workDir string) *exec.Cmd {
-	cmd := exec.CommandContext(ctx, p.cliPath, "exec", "--json", "--yolo", "-C", workDir, "-")
+	cmd := exec.CommandContext(ctx, p.cliPath, "exec", "--json", "--yolo", "--skip-git-repo-check", "-C", workDir, "-")
 	cmd.Dir = workDir
 	cmd.Stdin = strings.NewReader(prompt)
 	return cmd

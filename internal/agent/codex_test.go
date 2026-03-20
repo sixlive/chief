@@ -40,7 +40,7 @@ func TestCodexProvider_LoopCommand(t *testing.T) {
 	if cmd.Path != "/bin/codex" {
 		t.Errorf("LoopCommand Path = %q, want /bin/codex", cmd.Path)
 	}
-	wantArgs := []string{"/bin/codex", "exec", "--json", "--yolo", "-C", "/work/dir", "-"}
+	wantArgs := []string{"/bin/codex", "exec", "--json", "--yolo", "--skip-git-repo-check", "-C", "/work/dir", "-"}
 	if len(cmd.Args) != len(wantArgs) {
 		t.Fatalf("LoopCommand Args len = %d, want %d: %v", len(cmd.Args), len(wantArgs), cmd.Args)
 	}
@@ -65,8 +65,14 @@ func TestCodexProvider_InteractiveCommand(t *testing.T) {
 	if cmd.Dir != "/work" {
 		t.Errorf("InteractiveCommand Dir = %q, want /work", cmd.Dir)
 	}
-	if len(cmd.Args) < 2 || cmd.Args[0] != "codex" || cmd.Args[1] != "my prompt" {
-		t.Errorf("InteractiveCommand Args = %v", cmd.Args)
+	wantInteractiveArgs := []string{"codex", "my prompt"}
+	if len(cmd.Args) != len(wantInteractiveArgs) {
+		t.Fatalf("InteractiveCommand Args len = %d, want %d: %v", len(cmd.Args), len(wantInteractiveArgs), cmd.Args)
+	}
+	for i, w := range wantInteractiveArgs {
+		if cmd.Args[i] != w {
+			t.Errorf("InteractiveCommand Args[%d] = %q, want %q", i, cmd.Args[i], w)
+		}
 	}
 }
 
