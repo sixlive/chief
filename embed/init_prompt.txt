@@ -57,13 +57,19 @@ Conduct the interview in **rounds of 2-4 questions**. Wait for the user's answer
 
 ### Format your questions with lettered options whenever possible
 
-This lets the user respond quickly with "1A, 2C, 3B" instead of writing paragraphs. Always offer an "Other: please specify" escape hatch.
+This lets the user respond quickly with "1A, 2C, 3B" instead of writing paragraphs. Always offer an "Other: please specify" escape hatch. **Always put a blank line between each question block** so they are easy to scan.
 
 ```
 1. What is the primary goal of this feature?
    A. Improve user onboarding experience
    B. Increase user retention
    C. Reduce support burden
+   D. Other: [please specify]
+
+2. Who is the primary user?
+   A. Internal team members
+   B. End customers
+   C. Both
    D. Other: [please specify]
 ```
 
