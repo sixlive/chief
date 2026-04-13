@@ -52,6 +52,22 @@ func RunNew(opts NewOptions) error {
 		return fmt.Errorf("PRD already exists at %s. Use 'chief edit %s' to modify it", prdMdPath, opts.Name)
 	}
 
+	// Write the embedded PRD references (template + user-story guide) into a
+	// .references directory inside the PRD dir so the init agent can read
+	// them while generating the PRD. These are regenerated on every `chief
+	// new` so they always reflect the version shipped with the current
+	// binary.
+	refDir := filepath.Join(prdDir, ".references")
+	if err := os.MkdirAll(refDir, 0755); err != nil {
+		return fmt.Errorf("failed to create references directory: %w", err)
+	}
+	if err := os.WriteFile(filepath.Join(refDir, "prd-template.md"), []byte(embed.PRDTemplateMarkdown()), 0644); err != nil {
+		return fmt.Errorf("failed to write prd-template.md: %w", err)
+	}
+	if err := os.WriteFile(filepath.Join(refDir, "user-story-guide.md"), []byte(embed.UserStoryGuideMarkdown()), 0644); err != nil {
+		return fmt.Errorf("failed to write user-story-guide.md: %w", err)
+	}
+
 	// Get the init prompt with the PRD directory path
 	prompt := embed.GetInitPrompt(prdDir, opts.Context)
 	if opts.Provider == nil {

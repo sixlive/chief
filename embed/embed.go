@@ -19,6 +19,20 @@ var editPromptTemplate string
 //go:embed detect_setup_prompt.txt
 var detectSetupPromptTemplate string
 
+//go:embed prd_template.md
+var prdTemplateMarkdown string
+
+//go:embed user_story_guide.md
+var userStoryGuideMarkdown string
+
+// PRDTemplateMarkdown returns the canonical PRD template that the init flow
+// writes to disk so the agent can reference it during PRD generation.
+func PRDTemplateMarkdown() string { return prdTemplateMarkdown }
+
+// UserStoryGuideMarkdown returns the canonical user-story / acceptance
+// criteria guide that the init flow writes to disk alongside the template.
+func UserStoryGuideMarkdown() string { return userStoryGuideMarkdown }
+
 // GetPrompt returns the agent prompt with the progress path and
 // current story context substituted. The storyContext is the JSON of the
 // current story to work on, inlined directly into the prompt so that the
