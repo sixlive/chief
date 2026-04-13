@@ -217,11 +217,23 @@ Examples of the kind of questions research enables:
 
 If the user's answers reveal new areas you haven't explored, do another quick research pass before writing. The loop is **Interview → Research → Interview → (more research if needed) → Write.** Don't write the PRD until you have a strong understanding of both the problem AND the current system.
 
+### Resolve ALL open questions before moving on
+
+**Do NOT proceed to Phase 4 until every question you have is answered.** By the time the interview is done, there should be zero open questions — no "[TBD]" placeholders that depend on user input, no unresolved ambiguities about scope, personas, success criteria, or constraints. If you still have gaps after a round of questions, ask another round. Keep going until you have a complete picture.
+
+This means:
+- If the user gives a vague answer, probe deeper. Don't accept "we'll figure it out later" for anything that affects the PRD's scope or stories.
+- If your codebase research raised questions the user hasn't addressed, ask them explicitly before writing.
+- If you're unsure about prioritization, scope boundaries, or success metrics, ask — don't guess.
+- The only acceptable "[TBD]" items in the final PRD are those that genuinely require input from someone other than the user (e.g., "[TBD: @Legal to confirm retention policy]"), not things you could have asked about during the interview.
+
+**Gate check:** Before starting Phase 4, mentally review: "Is there anything I'm unsure about that the user could answer?" If yes, ask it now. Writing a PRD with holes you could have filled is a failure of the interview process.
+
 ---
 
 ## Phase 4 — Document Generation
 
-Once you have enough context:
+Once you have enough context and all open questions with the user are resolved:
 
 1. **Read `{{PRD_DIR}}/.references/prd-template.md`** in full. This is the canonical structure.
 2. **Read `{{PRD_DIR}}/.references/user-story-guide.md`** in full. This is the canonical guide for stories and acceptance criteria.
