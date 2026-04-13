@@ -201,6 +201,17 @@ If you do not declare invariants here, the implementer will only see the per-sto
 - An invariant that is satisfied by every story trivially is not a useful invariant. Only include rules that have actually been violated or are easy to violate.
 - Keep the list short — 3 to 8 invariants for most features. If you have more than ~10, you are probably writing requirements, not invariants.
 
+**When the PRD's thesis is "eliminate X" (drift, half-wiring, stringly-typed boundaries, consolidation, dead tier):**
+
+- **Map the full boundary graph.** Enumerate every hop the value takes — source → storage → read model → transport → render — and state the type guarantee at each. If any hop is an untyped passthrough, either bring it in scope or state explicitly why that hop is safe to leave untyped. Silent hops are the #1 source of half-wiring churn.
+- **Pair every positive grep with a negative fingerprint.** An invariant like "all X come from enum Y" needs both: a positive verification (N expected call sites) AND a negative grep that returns zero matches when the anti-pattern is fully gone. Positive-only greps cannot catch survivors in files the story didn't touch.
+- **Forbid silent fallbacks explicitly.** If the motivating bug involved unknown values being silently accepted (default branch, null-coalesce to "safe" value, lenient enum parsing), include an invariant that the unknown-value path must fail loudly at the boundary it crosses. Without this, the cleanup can ship while the fallback pattern survives in unchanged files.
+- **Name sibling files explicitly.** If the invariants name `Foo`, they must also name `FooVariant` / `FooSibling`. Silence on the sibling means the sibling drifts.
+
+**Additional example — silent-fallback invariant:**
+
+- Unknown severity values must raise an error at the boundary they cross, not fall through to a default tier. **Why:** the original bug was possible because `?? 'low'`-style fallbacks silently mapped unknown strings to the Low tier, hiding the read/write asymmetry for months. **How to verify:** grep for null-coalescing fallbacks against the severity map returns zero matches; a unit test asserts the parser throws on an unknown value.
+
 ---
 
 ## 8. User Stories & Acceptance Criteria
@@ -217,6 +228,26 @@ Every acceptance criterion must be checkable by something an external observer c
 **Good:** `- [ ] When the user sends a message in Thread A, then opens Thread B, then returns to Thread A, the message is visible in Thread A and absent from Thread B.`
 
 The first criterion can pass while the user sees nothing. The second cannot.
+
+### Guardrail / no-regression criteria must construct the oracle, not assert a fixture
+
+When a criterion is of the form *"computation X must not change for existing data,"* specify **how the expected value is derived** from the inputs — never just "assert derived equals persisted." A test where the fixture sets both sides of the comparison passes even if the function under test is broken.
+
+**Bad (tautological — fixture sets both sides):**
+`- [ ] The test creates an entity with field='X', attaches children, and asserts compute() returns X.`
+
+**Good (constructed oracle — derivation is load-bearing):**
+`- [ ] The factory derives the persisted field by calling compute() over the attached children; the test fails if compute() returns a different value than the construction step used.`
+
+Smoke check before accepting any guardrail AC: *if the function under test returned a constant, would the criterion still pass?* If yes, the criterion is tautological and will not catch the regression it claims to catch.
+
+### Don't prescribe preserving a known anti-pattern
+
+Criteria that explicitly preserve the defect class the PRD exists to eliminate ("continue to use untyped string — do not introduce narrowing as part of this cleanup") bake the bug back in. If a boundary needs tightening, tighten it. If the tightening is truly out of scope, move it to §9 and note it in the thesis check — don't anchor it in an AC.
+
+### Docs references: symbol, not line
+
+When a story's output is a doc, specify references as `path` plus class / function / constant name — stable across refactors. Line numbers in prose rot on the next unrelated edit. Reserve line numbers for research citations (write-once) and machine-checked greps.
 
 ### Stories touching ownership-scoped resources MUST include adversarial criteria
 
@@ -307,6 +338,8 @@ Example:
 - **Mobile app support** — Desktop is 92% of target persona usage; mobile deferred to Phase 2.
 - **Internationalization** — English-only for MVP; i18n infrastructure will be built but translations deferred.
 
+**Scope-out thesis check.** Before finalizing this section, re-read §1's defect class. Any scope-out that leaves an instance of that defect class intact undermines the PRD — a "consolidate untyped boundaries" feature cannot ship with an untyped boundary on the hot read path. Resolve by (a) pulling the item in scope, or (b) narrowing §1's framing so the PRD isn't overclaiming. Don't scope out instances of your own thesis.
+
 ---
 
 ## 10. Design & UX Considerations
@@ -395,6 +428,19 @@ Links to supporting materials:
 - Technical spikes or feasibility assessments
 - Historical context or previous attempts
 - Related PRDs or RFCs
+
+---
+
+## 17. Author's Consistency Pass (Before Marking Approved)
+
+Run these four checks on the finished PRD. Each catches a specific class of post-implementation churn that satisfies the story ACs but violates the thesis.
+
+1. **Thesis check.** Does any §9 Out-of-Scope item — or any "do not do X as part of this cleanup" AC — leave an instance of the defect class §1 names intact? If yes: pull it in, or narrow §1.
+2. **Boundary-graph check.** If §1's problem is drift / type / consistency, does §7b enumerate every hop the value takes and state the type guarantee at each? Untyped passthroughs in unnamed hops are where half-wirings survive.
+3. **Oracle check.** For every guardrail / no-regression AC, is the expected value *constructed* from inputs (fresh derivation by the function under test against real factory state), or is it *asserted* via a fixture literal with both sides set by the same code? Tautological oracles pass while the thing they claim to protect is broken.
+4. **Negative-fingerprint check.** For every anti-pattern §1 wants eliminated, is there a grep in §7b's "How to verify" that returns zero matches when the cleanup is complete? Positive-only greps miss survivors in files the stories didn't touch.
+
+Revise until all four pass. In aggregate these four catch most review-time findings that would otherwise force a follow-up PRD.
 
 ---
 

@@ -246,6 +246,11 @@ Once you have enough context:
 9. **Global Invariants must be enforceable.** Each invariant should be specific enough that a reviewer can grep for a violation or write a test that proves it. "Be secure" is not an invariant. "Every endpoint accepting `thread_id` must reject ids the authenticated user does not own, and must have a cross-tenant test" is an invariant.
 10. **Acceptance criteria must be observable.** Every criterion must be checkable from outside the database — an HTTP request/response, a UI assertion, a browser test. "A row exists in table X" is not an acceptance criterion; "the user sees Y in screen Z" is. See the template's section 8 for examples.
 11. **Stories touching ownership-scoped resources MUST include an adversarial criterion.** Any story that touches an endpoint, query, or resource keyed by `user_id`/`tenant_id`/owner must include at least one explicit cross-tenant denial criterion. The reviewer will reject implementations missing this.
+12. **Scope-out thesis check.** Before finalizing §9 Out of Scope — or any "do not do X as part of this cleanup" AC — re-read §1. Out-of-scope items that leave instances of §1's defect class intact undermine the PRD. Resolve by pulling them in scope or narrowing §1's framing. Do not scope out instances of your own thesis.
+13. **Map the full boundary graph for drift PRDs.** If §1's problem is drift, half-wiring, stringly-typed boundaries, or consistency, §7b must enumerate every hop the value takes (source → storage → read model → transport → render) and state the type guarantee at each hop. Untyped passthroughs in unnamed hops are where half-wirings survive.
+14. **Pair positive and negative greps in invariants.** Every "must use X" invariant in §7b needs both a positive verification (N expected call sites) AND a negative anti-pattern grep that returns zero matches when the cleanup is complete. Positive-only greps cannot catch survivors in files the stories didn't touch.
+15. **Guardrail / no-regression AC: construct the oracle, never just assert the fixture.** For any "does not change for existing data" criterion, specify *how* the expected value is derived from inputs by the function under test — not "assert derived equals persisted" where both sides trace to the same fixture literal. Smoke check: if the function under test returned a constant, would the AC still pass? If yes, it's tautological.
+16. **Docs references by symbol, not line number.** When a story writes a doc, ACs should specify references as `path::MethodName` / `path::ConstantName` — stable across refactors. Line numbers in prose rot on the next unrelated edit.
 
 ### CRITICAL — Story format Chief can parse
 
@@ -294,6 +299,19 @@ Follow `user-story-guide.md`. Key principles:
   - Rule-based for business rules
 - **Organize stories into epics** that map to user journeys, not technical components.
 - **Apply SPIDR if a story is too big** — Spikes, Paths, Interfaces, Data, Rules.
+
+---
+
+## Phase 4.5 — Post-Draft Consistency Pass (MANDATORY before Phase 5)
+
+After writing `prd.md` and before presenting it to the user, run these four checks against your own draft. Each targets a class of churn that satisfies story ACs while violating the PRD's thesis.
+
+1. **Thesis check.** Re-read §1. Walk §9 Out of Scope and every "do not do X" clause in the ACs. Does any of them leave an instance of §1's defect class reachable after the feature ships? If yes: pull it in, or narrow §1.
+2. **Boundary-graph check.** If §1 is about drift / type / consistency, does §7b name every hop the value crosses (source → storage → read model → transport → render) and state the type guarantee at each? Unnamed hops are silent drift traps.
+3. **Oracle check.** For every guardrail / no-regression AC, does the criterion specify how the expected value is *constructed* from inputs, or does it merely *assert* two fixture-set values match? Tautological oracles pass while the regression they claim to catch is broken.
+4. **Negative-fingerprint check.** For every anti-pattern §1 wants eliminated, is there a grep in §7b's "How to verify" that returns zero matches when the cleanup is complete? Positive-only greps miss survivors in files the stories didn't touch.
+
+If any check fails, edit the PRD before moving to Phase 5. Note each fix briefly to the user in Phase 5 so they can confirm the interpretation.
 
 ---
 

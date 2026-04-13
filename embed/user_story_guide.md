@@ -172,6 +172,26 @@ The first can pass while the user sees nothing on screen. The second cannot.
 
 When you write a criterion, ask: "what does an external observer SEE when this is true?" That sentence is the criterion.
 
+### Guardrail / no-regression criteria: construct the oracle, don't assert a fixture
+
+When a criterion is of the form *"computation must not change for existing data,"* specify **how the expected value is derived** from the inputs — never just "assert derived equals persisted." A test where the fixture sets both sides of the comparison passes even if the function under test is broken.
+
+**Bad (tautological — fixture sets both sides):**
+- `- [ ] Test creates an audit with score='high', attaches items, asserts compute() returns High.`
+
+**Good (constructed oracle — derivation is load-bearing):**
+- `- [ ] The factory derives the persisted score by calling compute() over the attached items; the test fails if compute() returns a different value than the construction step used.`
+
+Smoke check before accepting any guardrail AC: *if the function under test returned a constant, would the criterion still pass?* If yes, the criterion is tautological and will not catch the regression it claims to catch.
+
+### Don't prescribe preserving a known anti-pattern
+
+Criteria that explicitly preserve the defect class the PRD exists to eliminate — e.g. "the severity prop continues to use untyped String — do not introduce narrowing as part of this cleanup" — bake the bug back in. If a boundary needs tightening, tighten it. If the tightening is genuinely out of scope, list it in the PRD's Out-of-Scope section with a reason; do not anchor it in an AC.
+
+### Docs references: by symbol, not line number
+
+When a story's output is a doc, write references as `path` plus class / function / constant name — stable across refactors. Line numbers in prose rot on the next unrelated edit. Reserve line numbers for research citations and for machine-checked grep fingerprints.
+
 ### Adversarial criteria — required for ownership-scoped resources
 
 Any story that touches an endpoint, query, or resource keyed by `user_id` / `tenant_id` / owner MUST include at least one explicit adversarial criterion proving cross-tenant access is denied.

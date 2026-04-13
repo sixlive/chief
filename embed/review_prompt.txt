@@ -61,6 +61,10 @@ For EACH check below, walk the diff and the surrounding code. Be specific. Cite 
 
 8. **General quality.** Type errors the type-checker missed, race conditions, transactional boundaries that should wrap multi-step writes, dead code introduced by the diff, missing migrations for new columns, etc. Use judgement.
 
+9. **Thesis consistency (half-wiring).** Re-read §1 of the PRD. Walk the diff AND the surrounding files the story did not touch. Does this work leave an instance of the defect class §1 names still callable, reachable, or rendered — especially at boundaries the story did not edit (model casts, prop types, hand-rolled enum iterations, silent fallbacks, sibling files)? A story that satisfies its own ACs but leaves the thesis defect class alive is a finding. Run each negative-fingerprint grep from the Global Invariants verbatim; any non-zero count that isn't clearly in scope for a later story is a finding. Flag with `(thesis)` and cite the surviving site.
+
+10. **Guardrail oracle construction.** For any test the diff adds or modifies as a "no-regression" or "guardrail" check, trace both sides of the assertion to their source. If both sides derive from the same fixture literal (e.g., factory sets `score='high'` and the test asserts `compute() === 'high'` without actually invoking `compute()` at construction time), the oracle is tautological — the test passes even if the function under test is broken. Flag with `(oracle)` and suggest a constructed-oracle rewrite (have the factory derive the persisted value via the function under test).
+
 ### Step 4 — Write your verdict
 
 Write your verdict to `{{REVIEW_OUTPUT_PATH}}`. The file MUST start with one of these two headers on the first line:

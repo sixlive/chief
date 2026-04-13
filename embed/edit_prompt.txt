@@ -51,55 +51,26 @@ If the requested changes are straightforward and unambiguous, you may skip quest
 
 ## Step 3: Edit the PRD
 
-Make the requested changes while preserving the overall structure. The PRD should maintain these sections:
+Make the requested changes while preserving the overall structure documented in `{{PRD_DIR}}/.references/prd-template.md`. Read that template first if you have not — it is the canonical section list (Problem Statement, Current State, Personas, Goals & Metrics, Proposed Solution, User Journeys, Functional Requirements, **Global Invariants**, User Stories, Out of Scope, Design, Technical Considerations, Risks, Analytics, Launch, Open Questions, Appendix, Author's Consistency Pass). The user-story guide at `{{PRD_DIR}}/.references/user-story-guide.md` covers story and acceptance-criteria rules.
 
-### 1. Introduction/Overview
-Brief description of the feature and the problem it solves.
+### Editing rules
 
-### 2. Goals
-Specific, measurable objectives (bullet list).
+- **Preserve story IDs.** Keep existing IDs (e.g. `US-001`, `T-003`) when modifying stories. New stories get the next unused ID.
+- **Preserve the story format Chief parses.** Level-3 headings of the form `### ID: Title` with `**Priority:** <integer>`, `**Description:**`, and `**Acceptance Criteria:**` as `- [ ]` checkboxes. Do not switch to bold-prefix style (`**Story US-001:**`) — Chief will stop seeing the stories.
+- **Update dependent sections.** If scope changes, walk §4 Goals & Success Metrics, §9 Out of Scope, and §7b Global Invariants — each is likely to need a matching edit. A scope change that silently leaves stale goals or invariants is a common source of later churn.
+- **Acceptance criteria must be observable and constructed.** Every AC must be checkable by something an external observer can run (HTTP response, UI assertion, browser test). Guardrail / no-regression ACs must construct the expected value via the function under test, not assert two fixture-set values against each other. See the template and user-story guide for the full rules.
+- **Touching ownership-scoped resources.** If the edits add or modify any endpoint / query / resource keyed by `user_id` / `tenant_id` / owner, the affected story must carry an adversarial AC (cross-tenant denial). The reviewer will reject implementations missing this.
 
-### 3. User Stories
-Each story needs:
-- **Title:** Short descriptive name
-- **Description:** "As a [user], I want [feature] so that [benefit]"
-- **Acceptance Criteria:** Verifiable checklist of what "done" means
+### After editing — run the consistency pass
 
-**Format:**
-```markdown
-### US-001: [Title]
-**Priority:** 1
-**Description:** As a [user], I want [feature] so that [benefit].
+Before finishing, walk the four checks in §17 of the template (Author's Consistency Pass) against the edited PRD:
 
-**Acceptance Criteria:**
-- [ ] Specific verifiable criterion
-- [ ] Another criterion
-```
+1. **Thesis check** — do any newly-added or newly-preserved scope-outs leave instances of §1's defect class intact?
+2. **Boundary-graph check** — for drift/consistency PRDs, does §7b cover every hop the value takes?
+3. **Oracle check** — do new or modified guardrail ACs construct the expected value, or just assert a fixture?
+4. **Negative-fingerprint check** — for each anti-pattern §1 wants eliminated, is there a zero-match grep in §7b?
 
-**Editing Guidelines:**
-- **Preserve story IDs** - Keep existing US-XXX IDs when modifying stories.
-- **Add new stories** with the next available ID number.
-- **Update priorities** if story order needs to change.
-- Each story should be small enough to implement in one focused coding session.
-- Acceptance criteria must be verifiable, not vague. "Works correctly" is bad. "Button shows confirmation dialog before deleting" is good.
-
-### 4. Functional Requirements
-Numbered list (FR-1, FR-2, etc.). Be explicit and unambiguous.
-
-### 5. Non-Goals (Out of Scope)
-What this feature will NOT include. Update if scope changes.
-
-### 6. Design Considerations (Optional)
-UI/UX requirements, mockup links, existing components to reuse.
-
-### 7. Technical Considerations (Optional)
-Constraints, dependencies, integration points, performance requirements.
-
-### 8. Success Metrics
-Specific, measurable indicators of success. Always review these when making changes — if the scope changes, the metrics likely should too.
-
-### 9. Open Questions
-Update with any new questions raised by the changes.
+Revise until all four pass, then summarize changes to the user.
 
 ---
 
@@ -107,26 +78,27 @@ Update with any new questions raised by the changes.
 
 The PRD reader may be a junior developer or AI agent. Therefore:
 
-- Be explicit and unambiguous
-- Avoid jargon or explain it when used
-- Provide enough detail to understand purpose and core logic
-- Number requirements for easy reference
-- Use concrete examples where helpful
+- Be explicit and unambiguous.
+- Avoid jargon or explain it when used.
+- Provide enough detail to understand purpose and core logic.
+- Number requirements for easy reference.
+- Use concrete examples where helpful.
 
 ---
 
-## Checklist
+## Pre-Save Checklist
 
 Before saving the edited PRD, verify:
 
-- [ ] Asked clarifying questions if changes were ambiguous
-- [ ] Existing story IDs are preserved (not renumbered)
-- [ ] New stories use the next available ID
-- [ ] User stories are small, atomic, and specific
-- [ ] Acceptance criteria are verifiable (not vague)
-- [ ] Functional requirements are numbered and unambiguous
-- [ ] Non-goals updated if scope changed
-- [ ] Success metrics reviewed and updated if needed
+- [ ] Asked clarifying questions if changes were ambiguous (or confirmed the edit is unambiguous).
+- [ ] Existing story IDs are preserved (not renumbered).
+- [ ] New stories use the next available ID.
+- [ ] Story format still matches what Chief parses (level-3 `### ID: Title` headings, integer priority, `- [ ]` checkboxes).
+- [ ] Acceptance criteria are observable (external observer can check) and — where applicable — construct the oracle rather than assert a fixture.
+- [ ] Ownership-scoped stories have at least one adversarial / cross-tenant denial criterion.
+- [ ] §4 Success Metrics, §9 Out of Scope, and §7b Global Invariants are still consistent with the edited scope.
+- [ ] Author's Consistency Pass (§17) — all four checks pass on the revised PRD.
+
 ---
 
 ## Final Step

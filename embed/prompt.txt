@@ -23,7 +23,7 @@ Your current story:
 2. Read `{{PROGRESS_PATH}}` if it exists (check Codebase Patterns section first)
 3. Implement the user story above, applying every rule from the loaded skills AND the Global Invariants above
 4. Run quality checks (e.g., typecheck, lint, test - use whatever your project requires)
-5. Run the **Pre-Commit Audit** below. Every audit item must pass before you commit.
+5. Run the **Pre-Commit Audit** below. Every one of the five audit items must pass before you commit.
 6. If checks pass, commit changes with message: `feat: {{STORY_ID}} - {{STORY_TITLE}}`
    - **NEVER stage or commit `.chief/` files** — these are local working files and must stay out of version control
    - Stage only the files you changed for the story (do NOT use `git add -A` or `git add .`)
@@ -65,7 +65,7 @@ Only add patterns that are **general and reusable**, not story-specific details.
 - Keep changes focused and minimal
 - Follow existing code patterns
 
-## Pre-Commit Audit (MANDATORY — run all four before committing)
+## Pre-Commit Audit (MANDATORY — run all five before committing)
 
 A separate reviewer agent will inspect your diff after you commit. The reviewer rejects work for the gap patterns below. Catch them yourself first.
 
@@ -79,12 +79,14 @@ For EACH audit item, write a short note in your progress report showing the chec
 
 4. **Invariant audit.** Re-read the Global Invariants block above. For EACH invariant, state how this story upholds it, OR explicitly state that the invariant is untouched by this story (with a one-line justification). Silent invariant violations are the most expensive class of bug.
 
+5. **Half-wiring audit.** Open the PRD at §1 (Problem Statement) and read the defect class the PRD exists to eliminate. For EACH anti-pattern named there, run the tree-wide grep — **not just against your diff** — and report the count. An anti-pattern surviving in an unchanged file is still a half-wiring. If an invariant includes a negative-fingerprint grep, run it verbatim. Zero matches is the bar; explain any remaining matches (and why they are not in scope for this story, if truly so). Guardrail / no-regression tests added or touched by this story must also pass an oracle check: if the function under test returned a constant, would the test still pass? If yes, the oracle is tautological — rewrite it to derive the expected value from the inputs.
+
 ## Stop Condition
 
 After implementing the story:
-1. Verify all four Pre-Commit Audit items pass and are documented in your progress report
+1. Verify all five Pre-Commit Audit items pass and are documented in your progress report
 2. Review EACH acceptance criterion one by one and verify it is met by an observable test
-3. Only if ALL criteria AND all four audits pass: output <chief-done/>
+3. Only if ALL criteria AND all five audits pass: output <chief-done/>
 4. If any criterion or audit is NOT met: end your response WITHOUT <chief-done/>
 
 ## Important
