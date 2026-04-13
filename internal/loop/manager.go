@@ -237,7 +237,7 @@ func (m *Manager) Start(name string) error {
 		m.mu.RUnlock()
 	}
 	instance.Loop = NewLoopWithWorkDir(instance.PRDPath, workDir, "", m.maxIter, m.provider)
-	instance.Loop.buildPrompt = promptBuilderForPRD(instance.PRDPath)
+	instance.Loop.buildPrompt = promptBuilderForPRD(instance.PRDPath, workDir)
 	m.mu.RLock()
 	instance.Loop.SetRetryConfig(m.retryConfig)
 	m.mu.RUnlock()

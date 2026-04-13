@@ -33,15 +33,29 @@ func PRDTemplateMarkdown() string { return prdTemplateMarkdown }
 // criteria guide that the init flow writes to disk alongside the template.
 func UserStoryGuideMarkdown() string { return userStoryGuideMarkdown }
 
-// GetPrompt returns the agent prompt with the progress path and
-// current story context substituted. The storyContext is the JSON of the
-// current story to work on, inlined directly into the prompt so that the
-// agent does not need to read the entire prd.md file.
-func GetPrompt(progressPath, storyContext, storyID, storyTitle string) string {
+// GetPrompt returns the agent prompt with the progress path, current story
+// context, skills manifest, and project-wide invariants substituted. The
+// storyContext is the JSON of the current story to work on, inlined directly
+// into the prompt so that the agent does not need to read the entire prd.md
+// file. The skillsManifest is the rendered list of project skills the agent
+// must load before working; pass an empty string to fall back to a generic
+// "no skills" notice. globalInvariants is the body of the PRD's
+// `## Global Invariants` section; pass an empty string when the PRD does not
+// declare any.
+func GetPrompt(progressPath, storyContext, storyID, storyTitle, skillsManifest, globalInvariants string) string {
+	if strings.TrimSpace(skillsManifest) == "" {
+		skillsManifest = "## Required Skills\n\nNo skills are defined for this project. Proceed normally.\n"
+	}
+	if strings.TrimSpace(globalInvariants) == "" {
+		globalInvariants = "_(none defined for this PRD)_"
+	}
+
 	result := strings.ReplaceAll(promptTemplate, "{{PROGRESS_PATH}}", progressPath)
 	result = strings.ReplaceAll(result, "{{STORY_CONTEXT}}", storyContext)
 	result = strings.ReplaceAll(result, "{{STORY_ID}}", storyID)
-	return strings.ReplaceAll(result, "{{STORY_TITLE}}", storyTitle)
+	result = strings.ReplaceAll(result, "{{STORY_TITLE}}", storyTitle)
+	result = strings.ReplaceAll(result, "{{SKILLS_MANIFEST}}", skillsManifest)
+	return strings.ReplaceAll(result, "{{GLOBAL_INVARIANTS}}", globalInvariants)
 }
 
 // GetInitPrompt returns the PRD generator prompt with the PRD directory and optional context substituted.

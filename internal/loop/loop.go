@@ -18,6 +18,7 @@ import (
 
 	"github.com/minicodemonkey/chief/embed"
 	"github.com/minicodemonkey/chief/internal/prd"
+	"github.com/minicodemonkey/chief/internal/skills"
 )
 
 // RetryConfig configures automatic retry behavior on Claude crashes.
@@ -44,7 +45,7 @@ type Loop struct {
 	prdPath         string
 	workDir         string
 	prompt          string
-	buildPrompt     func() (string, string, error) // optional: rebuild prompt each iteration; returns (prompt, storyID, error)
+	buildPrompt     func() (builtPrompt, error) // optional: rebuild prompt each iteration
 	maxIter         int
 	iteration       int
 	events          chan Event
@@ -91,25 +92,41 @@ func NewLoopWithWorkDir(prdPath, workDir string, prompt string, maxIter int, pro
 
 // NewLoopWithEmbeddedPrompt creates a new Loop instance using the embedded agent prompt.
 // The prompt is rebuilt on each iteration to inline the current story context.
-func NewLoopWithEmbeddedPrompt(prdPath string, maxIter int, provider Provider) *Loop {
-	l := NewLoop(prdPath, "", maxIter, provider)
-	l.buildPrompt = promptBuilderForPRD(prdPath)
+// workDir is the project root used to discover skills (.claude/skills, .agents/skills);
+// pass an empty string to fall back to the PRD directory.
+func NewLoopWithEmbeddedPrompt(prdPath, workDir string, maxIter int, provider Provider) *Loop {
+	l := NewLoopWithWorkDir(prdPath, workDir, "", maxIter, provider)
+	l.buildPrompt = promptBuilderForPRD(prdPath, workDir)
 	return l
+}
+
+// builtPrompt is what promptBuilderForPRD returns: the rendered prompt plus
+// the story metadata the loop needs.
+type builtPrompt struct {
+	prompt  string
+	storyID string
 }
 
 // promptBuilderForPRD returns a function that loads the PRD and builds a prompt
 // with the next story inlined. This is called before each iteration so that
-// newly completed stories are skipped. The returned storyID is stored on the Loop.
-func promptBuilderForPRD(prdPath string) func() (string, string, error) {
-	return func() (string, string, error) {
+// newly completed stories are skipped.
+//
+// skillDir is the directory used to discover project skills. When empty,
+// skill discovery falls back to the PRD's parent directory.
+//
+// The builder also injects Global Invariants — read from the
+// `## Global Invariants` section of prd.md so project-wide rules are present
+// in every iteration.
+func promptBuilderForPRD(prdPath, skillDir string) func() (builtPrompt, error) {
+	return func() (builtPrompt, error) {
 		p, err := prd.LoadPRD(prdPath)
 		if err != nil {
-			return "", "", fmt.Errorf("failed to load PRD for prompt: %w", err)
+			return builtPrompt{}, fmt.Errorf("failed to load PRD for prompt: %w", err)
 		}
 
 		story := p.NextStory()
 		if story == nil {
-			return "", "", fmt.Errorf("all stories are complete")
+			return builtPrompt{}, fmt.Errorf("all stories are complete")
 		}
 
 		// Mark the story as in-progress in the markdown file
@@ -117,8 +134,29 @@ func promptBuilderForPRD(prdPath string) func() (string, string, error) {
 
 		storyCtx := p.NextStoryContext()
 
-		prompt := embed.GetPrompt(prd.ProgressPath(prdPath), *storyCtx, story.ID, story.Title)
-		return prompt, story.ID, nil
+		discoveryRoot := skillDir
+		if discoveryRoot == "" {
+			discoveryRoot = filepath.Dir(prdPath)
+		}
+		discovered, _ := skills.Discover(discoveryRoot)
+		manifest := skills.RenderManifest(discovered, discoveryRoot)
+
+		// Load project-wide invariants. Errors here are non-fatal so PRDs
+		// without an invariants section keep working.
+		invariants, _ := prd.LoadInvariants(prdPath)
+
+		prompt := embed.GetPrompt(
+			prd.ProgressPath(prdPath),
+			*storyCtx,
+			story.ID,
+			story.Title,
+			manifest,
+			invariants,
+		)
+		return builtPrompt{
+			prompt:  prompt,
+			storyID: story.ID,
+		}, nil
 	}
 }
 
@@ -176,7 +214,7 @@ func (l *Loop) Run(ctx context.Context) error {
 
 		// Rebuild prompt if builder is set (inlines the current story each iteration)
 		if l.buildPrompt != nil {
-			prompt, storyID, err := l.buildPrompt()
+			built, err := l.buildPrompt()
 			if err != nil {
 				l.events <- Event{
 					Type:      EventComplete,
@@ -185,8 +223,8 @@ func (l *Loop) Run(ctx context.Context) error {
 				return nil
 			}
 			l.mu.Lock()
-			l.prompt = prompt
-			l.currentStoryID = storyID
+			l.prompt = built.prompt
+			l.currentStoryID = built.storyID
 			l.sawStoryDone = false
 			l.mu.Unlock()
 		}

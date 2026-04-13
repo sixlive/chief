@@ -8,7 +8,7 @@ import (
 func TestGetPrompt(t *testing.T) {
 	progressPath := "/path/to/progress.md"
 	storyContext := `{"id":"US-001","title":"Test Story"}`
-	prompt := GetPrompt(progressPath, storyContext, "US-001", "Test Story")
+	prompt := GetPrompt(progressPath, storyContext, "US-001", "Test Story", "", "")
 
 	// Verify all placeholders were substituted
 	if strings.Contains(prompt, "{{PROGRESS_PATH}}") {
@@ -45,8 +45,43 @@ func TestGetPrompt(t *testing.T) {
 	}
 }
 
+func TestGetPrompt_GlobalInvariantsRendered(t *testing.T) {
+	invariants := "- All endpoints must reject cross-tenant ids."
+	prompt := GetPrompt("/p", `{}`, "US-001", "Title", "", invariants)
+
+	if strings.Contains(prompt, "{{GLOBAL_INVARIANTS}}") {
+		t.Error("expected {{GLOBAL_INVARIANTS}} placeholder to be substituted")
+	}
+	if !strings.Contains(prompt, invariants) {
+		t.Error("expected prompt to contain the invariants body")
+	}
+}
+
+func TestGetPrompt_GlobalInvariantsEmptyFallback(t *testing.T) {
+	prompt := GetPrompt("/p", `{}`, "US-001", "Title", "", "")
+
+	if strings.Contains(prompt, "{{GLOBAL_INVARIANTS}}") {
+		t.Error("expected {{GLOBAL_INVARIANTS}} placeholder to be substituted")
+	}
+	if !strings.Contains(prompt, "(none defined for this PRD)") {
+		t.Error("expected fallback notice when no invariants are provided")
+	}
+}
+
+func TestGetPrompt_PreCommitAuditPresent(t *testing.T) {
+	prompt := GetPrompt("/p", `{}`, "US-001", "Title", "", "")
+	if !strings.Contains(prompt, "Pre-Commit Audit") {
+		t.Error("expected prompt to contain Pre-Commit Audit section")
+	}
+	for _, item := range []string{"Deprecated path audit", "Adversarial test audit", "Observability audit", "Invariant audit"} {
+		if !strings.Contains(prompt, item) {
+			t.Errorf("expected Pre-Commit Audit to contain %q", item)
+		}
+	}
+}
+
 func TestGetPrompt_NoFileReadInstruction(t *testing.T) {
-	prompt := GetPrompt("/path/progress.md", `{"id":"US-001"}`, "US-001", "Test Story")
+	prompt := GetPrompt("/path/progress.md", `{"id":"US-001"}`, "US-001", "Test Story", "", "")
 
 	// The prompt should NOT instruct Claude to read the PRD file
 	if strings.Contains(prompt, "Read the PRD") {
@@ -61,7 +96,7 @@ func TestPromptTemplateNotEmpty(t *testing.T) {
 }
 
 func TestGetPrompt_ChiefExclusion(t *testing.T) {
-	prompt := GetPrompt("/path/progress.md", `{"id":"US-001"}`, "US-001", "Test Story")
+	prompt := GetPrompt("/path/progress.md", `{"id":"US-001"}`, "US-001", "Test Story", "", "")
 
 	// The prompt must instruct Claude to never stage or commit .chief/ files
 	if !strings.Contains(prompt, ".chief/") {
