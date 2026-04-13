@@ -75,8 +75,9 @@ type Manager struct {
 	config         *config.Config // Project config for post-completion actions
 	mu             sync.RWMutex
 	wg             sync.WaitGroup
-	onComplete     func(prdName string)                  // Callback when a PRD completes
-	onPostComplete func(prdName, branch, workDir string) // Callback for post-completion actions (push, PR)
+	onComplete        func(prdName string)                    // Callback when a PRD completes
+	onPostComplete    func(prdName, branch, workDir string)   // Callback for post-completion actions (push, PR)
+	onReviewEscalated func(prdName, storyID, findings string) // Callback when the reviewer rejects a story twice and the loop pauses
 }
 
 // NewManager creates a new loop manager.
@@ -117,6 +118,16 @@ func (m *Manager) SetPostCompleteCallback(fn func(prdName, branch, workDir strin
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.onPostComplete = fn
+}
+
+// SetReviewEscalatedCallback sets a callback that fires when the reviewer
+// gate rejects a story for MaxReviewRounds in a row and the loop pauses for
+// human intervention. The callback receives the PRD name, the story ID, and
+// the body of the latest review findings.
+func (m *Manager) SetReviewEscalatedCallback(fn func(prdName, storyID, findings string)) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.onReviewEscalated = fn
 }
 
 // SetBaseDir sets the project root directory so Claude runs from there and picks up CLAUDE.md.
@@ -298,6 +309,17 @@ func (m *Manager) runLoop(instance *LoopInstance) {
 						workDir := instance.WorktreeDir
 						instance.mu.Unlock()
 						postCallback(instance.Name, branch, workDir)
+					}
+				}
+
+				// If the reviewer escalated, surface it to subscribers via
+				// the dedicated callback in addition to the events channel.
+				if event.Type == EventReviewEscalated {
+					m.mu.RLock()
+					escalatedCallback := m.onReviewEscalated
+					m.mu.RUnlock()
+					if escalatedCallback != nil {
+						escalatedCallback(instance.Name, event.StoryID, event.Text)
 					}
 				}
 			case <-instance.ctx.Done():

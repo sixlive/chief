@@ -8,7 +8,7 @@ import (
 func TestGetPrompt(t *testing.T) {
 	progressPath := "/path/to/progress.md"
 	storyContext := `{"id":"US-001","title":"Test Story"}`
-	prompt := GetPrompt(progressPath, storyContext, "US-001", "Test Story", "", "")
+	prompt := GetPrompt(progressPath, storyContext, "US-001", "Test Story", "", "", "")
 
 	// Verify all placeholders were substituted
 	if strings.Contains(prompt, "{{PROGRESS_PATH}}") {
@@ -47,7 +47,7 @@ func TestGetPrompt(t *testing.T) {
 
 func TestGetPrompt_GlobalInvariantsRendered(t *testing.T) {
 	invariants := "- All endpoints must reject cross-tenant ids."
-	prompt := GetPrompt("/p", `{}`, "US-001", "Title", "", invariants)
+	prompt := GetPrompt("/p", `{}`, "US-001", "Title", "", invariants, "")
 
 	if strings.Contains(prompt, "{{GLOBAL_INVARIANTS}}") {
 		t.Error("expected {{GLOBAL_INVARIANTS}} placeholder to be substituted")
@@ -58,7 +58,7 @@ func TestGetPrompt_GlobalInvariantsRendered(t *testing.T) {
 }
 
 func TestGetPrompt_GlobalInvariantsEmptyFallback(t *testing.T) {
-	prompt := GetPrompt("/p", `{}`, "US-001", "Title", "", "")
+	prompt := GetPrompt("/p", `{}`, "US-001", "Title", "", "", "")
 
 	if strings.Contains(prompt, "{{GLOBAL_INVARIANTS}}") {
 		t.Error("expected {{GLOBAL_INVARIANTS}} placeholder to be substituted")
@@ -68,8 +68,34 @@ func TestGetPrompt_GlobalInvariantsEmptyFallback(t *testing.T) {
 	}
 }
 
+func TestGetPrompt_ReviewFindingsRendered(t *testing.T) {
+	findings := "- Missing cross-tenant test."
+	prompt := GetPrompt("/p", `{}`, "US-001", "Title", "", "", findings)
+
+	if strings.Contains(prompt, "{{REVIEW_FINDINGS}}") {
+		t.Error("expected {{REVIEW_FINDINGS}} placeholder to be substituted")
+	}
+	if !strings.Contains(prompt, "Previous Review Findings") {
+		t.Error("expected findings header to appear when findings provided")
+	}
+	if !strings.Contains(prompt, findings) {
+		t.Error("expected prompt to contain the findings body")
+	}
+}
+
+func TestGetPrompt_ReviewFindingsEmptyOmitsBlock(t *testing.T) {
+	prompt := GetPrompt("/p", `{}`, "US-001", "Title", "", "", "")
+
+	if strings.Contains(prompt, "{{REVIEW_FINDINGS}}") {
+		t.Error("expected {{REVIEW_FINDINGS}} placeholder to be substituted")
+	}
+	if strings.Contains(prompt, "Previous Review Findings") {
+		t.Error("expected findings header to be omitted when no findings provided")
+	}
+}
+
 func TestGetPrompt_PreCommitAuditPresent(t *testing.T) {
-	prompt := GetPrompt("/p", `{}`, "US-001", "Title", "", "")
+	prompt := GetPrompt("/p", `{}`, "US-001", "Title", "", "", "")
 	if !strings.Contains(prompt, "Pre-Commit Audit") {
 		t.Error("expected prompt to contain Pre-Commit Audit section")
 	}
@@ -81,7 +107,7 @@ func TestGetPrompt_PreCommitAuditPresent(t *testing.T) {
 }
 
 func TestGetPrompt_NoFileReadInstruction(t *testing.T) {
-	prompt := GetPrompt("/path/progress.md", `{"id":"US-001"}`, "US-001", "Test Story", "", "")
+	prompt := GetPrompt("/path/progress.md", `{"id":"US-001"}`, "US-001", "Test Story", "", "", "")
 
 	// The prompt should NOT instruct Claude to read the PRD file
 	if strings.Contains(prompt, "Read the PRD") {
@@ -96,7 +122,7 @@ func TestPromptTemplateNotEmpty(t *testing.T) {
 }
 
 func TestGetPrompt_ChiefExclusion(t *testing.T) {
-	prompt := GetPrompt("/path/progress.md", `{"id":"US-001"}`, "US-001", "Test Story", "", "")
+	prompt := GetPrompt("/path/progress.md", `{"id":"US-001"}`, "US-001", "Test Story", "", "", "")
 
 	// The prompt must instruct Claude to never stage or commit .chief/ files
 	if !strings.Contains(prompt, ".chief/") {
@@ -129,6 +155,45 @@ func TestGetInitPrompt(t *testing.T) {
 	promptWithContext := GetInitPrompt(prdDir, context)
 	if !strings.Contains(promptWithContext, context) {
 		t.Error("Expected context to be substituted in prompt")
+	}
+}
+
+func TestGetReviewPrompt(t *testing.T) {
+	prompt := GetReviewPrompt(
+		"/p/prd.md",
+		"US-001",
+		"Test Story",
+		`{"id":"US-001"}`,
+		"- Invariant one.",
+		"## Required Skills\n\n- skill-a",
+		"/p/progress.md",
+		"/p/.review/US-001.md",
+	)
+
+	for _, placeholder := range []string{
+		"{{PRD_PATH}}", "{{STORY_ID}}", "{{STORY_TITLE}}", "{{STORY_CONTEXT}}",
+		"{{GLOBAL_INVARIANTS}}", "{{SKILLS_MANIFEST}}", "{{PROGRESS_PATH}}", "{{REVIEW_OUTPUT_PATH}}",
+	} {
+		if strings.Contains(prompt, placeholder) {
+			t.Errorf("expected %s to be substituted", placeholder)
+		}
+	}
+
+	for _, want := range []string{
+		"/p/prd.md", "US-001", "Test Story", "- Invariant one.",
+		"skill-a", "/p/progress.md", "/p/.review/US-001.md",
+		"<chief-review-done/>", "# APPROVED", "# NEEDS REVISION",
+	} {
+		if !strings.Contains(prompt, want) {
+			t.Errorf("expected review prompt to contain %q", want)
+		}
+	}
+}
+
+func TestGetReviewPrompt_EmptyInvariantsFallback(t *testing.T) {
+	prompt := GetReviewPrompt("/p", "US-001", "T", "{}", "", "", "/prog", "/out")
+	if !strings.Contains(prompt, "(none defined for this PRD") {
+		t.Error("expected fallback notice when no invariants provided")
 	}
 }
 

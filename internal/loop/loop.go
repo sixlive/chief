@@ -42,36 +42,41 @@ func DefaultRetryConfig() RetryConfig {
 
 // Loop manages the core agent loop that invokes the configured agent repeatedly until all stories are complete.
 type Loop struct {
-	prdPath         string
-	workDir         string
-	prompt          string
-	buildPrompt     func() (builtPrompt, error) // optional: rebuild prompt each iteration
-	maxIter         int
-	iteration       int
-	events          chan Event
-	provider        Provider
-	agentCmd        *exec.Cmd
-	logFile         *os.File
-	mu              sync.Mutex
-	stopped         bool
-	paused          bool
-	retryConfig     RetryConfig
-	lastOutputTime  time.Time
-	watchdogTimeout time.Duration
-	sawStoryDone    bool
-	currentStoryID  string
+	prdPath             string
+	workDir             string
+	prompt              string
+	buildPrompt         func() (builtPrompt, error) // optional: rebuild prompt each iteration
+	maxIter             int
+	iteration           int
+	events              chan Event
+	provider            Provider
+	agentCmd            *exec.Cmd
+	logFile             *os.File
+	mu                  sync.Mutex
+	stopped             bool
+	paused              bool
+	retryConfig         RetryConfig
+	lastOutputTime      time.Time
+	watchdogTimeout     time.Duration
+	sawStoryDone        bool
+	currentStoryID      string
+	currentStoryTitle   string
+	currentStoryContext string
+	reviewRoundsByStory map[string]int
+	skipReview          bool // tests only: bypass the reviewer gate
 }
 
 // NewLoop creates a new Loop instance.
 func NewLoop(prdPath, prompt string, maxIter int, provider Provider) *Loop {
 	return &Loop{
-		prdPath:         prdPath,
-		prompt:          prompt,
-		maxIter:         maxIter,
-		provider:        provider,
-		events:          make(chan Event, 100),
-		retryConfig:     DefaultRetryConfig(),
-		watchdogTimeout: DefaultWatchdogTimeout,
+		prdPath:             prdPath,
+		prompt:              prompt,
+		maxIter:             maxIter,
+		provider:            provider,
+		events:              make(chan Event, 100),
+		retryConfig:         DefaultRetryConfig(),
+		watchdogTimeout:     DefaultWatchdogTimeout,
+		reviewRoundsByStory: make(map[string]int),
 	}
 }
 
@@ -79,14 +84,15 @@ func NewLoop(prdPath, prompt string, maxIter int, provider Provider) *Loop {
 // When workDir is empty, defaults to the project root for backward compatibility.
 func NewLoopWithWorkDir(prdPath, workDir string, prompt string, maxIter int, provider Provider) *Loop {
 	return &Loop{
-		prdPath:         prdPath,
-		workDir:         workDir,
-		prompt:          prompt,
-		maxIter:         maxIter,
-		provider:        provider,
-		events:          make(chan Event, 100),
-		retryConfig:     DefaultRetryConfig(),
-		watchdogTimeout: DefaultWatchdogTimeout,
+		prdPath:             prdPath,
+		workDir:             workDir,
+		prompt:              prompt,
+		maxIter:             maxIter,
+		provider:            provider,
+		events:              make(chan Event, 100),
+		retryConfig:         DefaultRetryConfig(),
+		watchdogTimeout:     DefaultWatchdogTimeout,
+		reviewRoundsByStory: make(map[string]int),
 	}
 }
 
@@ -101,10 +107,12 @@ func NewLoopWithEmbeddedPrompt(prdPath, workDir string, maxIter int, provider Pr
 }
 
 // builtPrompt is what promptBuilderForPRD returns: the rendered prompt plus
-// the story metadata the loop needs.
+// the story metadata the loop needs to drive the reviewer gate.
 type builtPrompt struct {
-	prompt  string
-	storyID string
+	prompt       string
+	storyID      string
+	storyTitle   string
+	storyContext string
 }
 
 // promptBuilderForPRD returns a function that loads the PRD and builds a prompt
@@ -112,11 +120,17 @@ type builtPrompt struct {
 // newly completed stories are skipped.
 //
 // skillDir is the directory used to discover project skills. When empty,
-// skill discovery falls back to the PRD's parent directory.
+// skill discovery falls back to the PRD's parent directory, which usually
+// will not contain a .claude/skills tree — that's intentional, since the
+// embedded constructor without an explicit workDir is only used in tests.
 //
-// The builder also injects Global Invariants — read from the
-// `## Global Invariants` section of prd.md so project-wide rules are present
-// in every iteration.
+// The builder also injects two cross-cutting blocks into every prompt:
+//
+//   - Global Invariants — read from the `## Global Invariants` section of
+//     prd.md so project-wide rules are present in every iteration.
+//   - Review findings — if the previous attempt at this story was rejected
+//     by the reviewer gate, the findings file at
+//     `<prdDir>/.review/<storyID>.md` is loaded and prepended.
 func promptBuilderForPRD(prdPath, skillDir string) func() (builtPrompt, error) {
 	return func() (builtPrompt, error) {
 		p, err := prd.LoadPRD(prdPath)
@@ -145,6 +159,11 @@ func promptBuilderForPRD(prdPath, skillDir string) func() (builtPrompt, error) {
 		// without an invariants section keep working.
 		invariants, _ := prd.LoadInvariants(prdPath)
 
+		// Load any pending review findings for this story. The reviewer
+		// writes a findings file when it rejects an attempt; the implementer
+		// must address those findings before the next <chief-done/>.
+		findings := loadPendingReviewFindings(prdPath, story.ID)
+
 		prompt := embed.GetPrompt(
 			prd.ProgressPath(prdPath),
 			*storyCtx,
@@ -152,10 +171,13 @@ func promptBuilderForPRD(prdPath, skillDir string) func() (builtPrompt, error) {
 			story.Title,
 			manifest,
 			invariants,
+			findings,
 		)
 		return builtPrompt{
-			prompt:  prompt,
-			storyID: story.ID,
+			prompt:       prompt,
+			storyID:      story.ID,
+			storyTitle:   story.Title,
+			storyContext: *storyCtx,
 		}, nil
 	}
 }
@@ -225,6 +247,8 @@ func (l *Loop) Run(ctx context.Context) error {
 			l.mu.Lock()
 			l.prompt = built.prompt
 			l.currentStoryID = built.storyID
+			l.currentStoryTitle = built.storyTitle
+			l.currentStoryContext = built.storyContext
 			l.sawStoryDone = false
 			l.mu.Unlock()
 		}
@@ -255,14 +279,33 @@ func (l *Loop) Run(ctx context.Context) error {
 		default:
 		}
 
-		// If the agent emitted <chief-done/>, mark the story as done in prd.md
+		// If the agent emitted <chief-done/>, run the reviewer gate before
+		// marking the story as done. The reviewer is an independent subagent
+		// that reads the diff against the PRD, the global invariants, the
+		// loaded skills, and the acceptance criteria. Approval marks the
+		// story done; rejection keeps it in-progress and the next iteration
+		// will pick up the findings file. After MaxReviewRounds rejections
+		// the loop pauses and surfaces the escalation to the user.
 		l.mu.Lock()
 		saw := l.sawStoryDone
 		storyID := l.currentStoryID
+		storyTitle := l.currentStoryTitle
+		storyContext := l.currentStoryContext
+		skipReview := l.skipReview
 		l.sawStoryDone = false
 		l.mu.Unlock()
 		if saw && storyID != "" {
-			_ = prd.SetStoryStatus(l.prdPath, storyID, "done")
+			if skipReview {
+				_ = prd.SetStoryStatus(l.prdPath, storyID, "done")
+			} else {
+				if escalated, err := l.runReviewGate(ctx, currentIter, storyID, storyTitle, storyContext); err != nil {
+					l.events <- Event{Type: EventReviewError, Iteration: currentIter, StoryID: storyID, Err: err}
+					l.Pause()
+					return nil
+				} else if escalated {
+					return nil
+				}
+			}
 		}
 		// buildPrompt on the next iteration will return error if all stories are complete,
 		// which causes EventComplete to be emitted above.
@@ -275,6 +318,73 @@ func (l *Loop) Run(ctx context.Context) error {
 		}
 		l.mu.Unlock()
 	}
+}
+
+// runReviewGate runs the reviewer subagent for a freshly-completed story and
+// then dispatches the verdict to the state machine in handleReviewVerdict.
+// Returns (escalated, error). On error, the caller pauses the loop.
+func (l *Loop) runReviewGate(ctx context.Context, iter int, storyID, storyTitle, storyContext string) (bool, error) {
+	l.events <- Event{Type: EventReviewStart, Iteration: iter, StoryID: storyID}
+
+	verdict, err := runReview(ctx, l, storyID, storyTitle, storyContext)
+	if err != nil {
+		return false, err
+	}
+
+	return l.handleReviewVerdict(iter, storyID, verdict), nil
+}
+
+// handleReviewVerdict applies the reviewer's verdict to loop state. It is
+// split out from runReviewGate so tests can drive the state machine without
+// having to spawn a real reviewer process.
+//
+//   - approved: marks the story done in prd.md, rotates the verdict to its
+//     archive name, resets the round counter, emits EventReviewApproved.
+//   - rejected (round < MaxReviewRounds): leaves the story in-progress, leaves
+//     the findings file in place so the next iteration's promptBuilder picks
+//     it up, increments the counter, emits EventReviewNeedsRevision.
+//   - rejected (round >= MaxReviewRounds): leaves everything in place, emits
+//     EventReviewEscalated, pauses the loop, and returns true so the caller
+//     stops the iteration loop.
+func (l *Loop) handleReviewVerdict(iter int, storyID string, verdict *ReviewVerdict) bool {
+	if verdict.Approved {
+		_ = prd.SetStoryStatus(l.prdPath, storyID, "done")
+		_ = archiveApprovedVerdict(l.prdPath, storyID)
+		l.mu.Lock()
+		l.reviewRoundsByStory[storyID] = 0
+		l.mu.Unlock()
+		l.events <- Event{
+			Type:      EventReviewApproved,
+			Iteration: iter,
+			StoryID:   storyID,
+			Text:      verdict.Body,
+		}
+		return false
+	}
+
+	l.mu.Lock()
+	l.reviewRoundsByStory[storyID]++
+	round := l.reviewRoundsByStory[storyID]
+	l.mu.Unlock()
+
+	if round >= MaxReviewRounds {
+		l.events <- Event{
+			Type:      EventReviewEscalated,
+			Iteration: iter,
+			StoryID:   storyID,
+			Text:      verdict.Body,
+		}
+		l.Pause()
+		return true
+	}
+
+	l.events <- Event{
+		Type:      EventReviewNeedsRevision,
+		Iteration: iter,
+		StoryID:   storyID,
+		Text:      verdict.Body,
+	}
+	return false
 }
 
 // runIterationWithRetry wraps runIteration with retry logic for crash recovery.

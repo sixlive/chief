@@ -31,6 +31,16 @@ const (
 	EventRetrying
 	// EventWatchdogTimeout is emitted when the watchdog kills a hung process.
 	EventWatchdogTimeout
+	// EventReviewStart is emitted when the reviewer subagent begins reviewing a story.
+	EventReviewStart
+	// EventReviewApproved is emitted when the reviewer accepts the implementer's work.
+	EventReviewApproved
+	// EventReviewNeedsRevision is emitted when the reviewer rejects the work and the loop will retry.
+	EventReviewNeedsRevision
+	// EventReviewEscalated is emitted when the reviewer rejects work twice in a row and the loop pauses.
+	EventReviewEscalated
+	// EventReviewError is emitted when the reviewer fails to produce a verdict (e.g. crashed, missing file).
+	EventReviewError
 )
 
 // String returns the string representation of an EventType.
@@ -56,6 +66,16 @@ func (e EventType) String() string {
 		return "Retrying"
 	case EventWatchdogTimeout:
 		return "WatchdogTimeout"
+	case EventReviewStart:
+		return "ReviewStart"
+	case EventReviewApproved:
+		return "ReviewApproved"
+	case EventReviewNeedsRevision:
+		return "ReviewNeedsRevision"
+	case EventReviewEscalated:
+		return "ReviewEscalated"
+	case EventReviewError:
+		return "ReviewError"
 	default:
 		return "Unknown"
 	}
