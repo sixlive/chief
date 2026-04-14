@@ -171,8 +171,7 @@ func (t *TabBar) Render() string {
 	newTab := TabNewStyle.Render("+ New")
 	tabs = append(tabs, newTab)
 
-	// Join tabs with small spacing
-	return lipgloss.JoinHorizontal(lipgloss.Top, tabs...)
+	return t.fitTabs(tabs, t.activeIndex, len(tabs)-1)
 }
 
 // renderTab renders a single tab.
@@ -283,7 +282,111 @@ func (t *TabBar) RenderCompact() string {
 	newTab := TabNewStyle.Render("+")
 	tabs = append(tabs, newTab)
 
-	return lipgloss.JoinHorizontal(lipgloss.Top, tabs...)
+	return t.fitTabs(tabs, t.activeIndex, len(tabs)-1)
+}
+
+// fitTabs joins tabs horizontally but drops entries so the total rendered
+// width never exceeds t.width. The active tab and the "+ New" tab (newIdx)
+// are preserved when possible; dropped tabs are represented by a "…" marker.
+func (t *TabBar) fitTabs(tabs []string, activeIdx, newIdx int) string {
+	if t.width <= 0 {
+		return lipgloss.JoinHorizontal(lipgloss.Top, tabs...)
+	}
+
+	joined := lipgloss.JoinHorizontal(lipgloss.Top, tabs...)
+	if lipgloss.Width(joined) <= t.width {
+		return joined
+	}
+
+	ellipsis := TabStyle.Render("…")
+	ellipsisW := lipgloss.Width(ellipsis)
+
+	keep := make([]bool, len(tabs))
+	if activeIdx >= 0 && activeIdx < len(tabs) {
+		keep[activeIdx] = true
+	}
+	if newIdx >= 0 && newIdx < len(tabs) {
+		keep[newIdx] = true
+	}
+
+	render := func() string {
+		var out []string
+		dropped := false
+		for i, tab := range tabs {
+			if keep[i] {
+				if dropped {
+					out = append(out, ellipsis)
+					dropped = false
+				}
+				out = append(out, tab)
+			} else {
+				dropped = true
+			}
+		}
+		if dropped {
+			out = append(out, ellipsis)
+		}
+		return lipgloss.JoinHorizontal(lipgloss.Top, out...)
+	}
+
+	// Measure current required width with only mandatory tabs kept.
+	currentWidth := 0
+	for i, tab := range tabs {
+		if keep[i] {
+			currentWidth += lipgloss.Width(tab)
+		}
+	}
+	// Account for ellipsis markers that will appear around dropped runs.
+	countEllipses := func() int {
+		n := 0
+		inDrop := false
+		for i := range tabs {
+			if !keep[i] {
+				if !inDrop {
+					n++
+					inDrop = true
+				}
+			} else {
+				inDrop = false
+			}
+		}
+		return n
+	}
+	currentWidth += countEllipses() * ellipsisW
+
+	// Add tabs back (nearest to active first) while we still fit.
+	order := make([]int, 0, len(tabs))
+	if activeIdx >= 0 {
+		for d := 1; d < len(tabs); d++ {
+			if activeIdx-d >= 0 {
+				order = append(order, activeIdx-d)
+			}
+			if activeIdx+d < len(tabs) {
+				order = append(order, activeIdx+d)
+			}
+		}
+	} else {
+		for i := range tabs {
+			order = append(order, i)
+		}
+	}
+
+	for _, i := range order {
+		if keep[i] {
+			continue
+		}
+		prevEllipses := countEllipses()
+		keep[i] = true
+		newEllipses := countEllipses()
+		added := lipgloss.Width(tabs[i]) + (newEllipses-prevEllipses)*ellipsisW
+		if currentWidth+added > t.width {
+			keep[i] = false
+			continue
+		}
+		currentWidth += added
+	}
+
+	return render()
 }
 
 // renderCompactTab renders a compact version of a tab.

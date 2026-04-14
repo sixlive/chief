@@ -384,7 +384,7 @@ func (a *App) renderStoriesPanel(width, height int) string {
 	title := PanelTitleStyle.Render(titleText)
 	content.WriteString(title)
 	content.WriteString("\n")
-	content.WriteString(DividerStyle.Render(strings.Repeat("─", width-2)))
+	content.WriteString(DividerStyle.Render(strings.Repeat("─", max(0, width-4))))
 	content.WriteString("\n")
 
 	// Clamp scroll offset
@@ -408,8 +408,8 @@ func (a *App) renderStoriesPanel(width, height int) string {
 		story := a.prd.UserStories[i]
 		icon := GetStatusIcon(story.Passes, story.InProgress)
 
-		// Truncate title to fit
-		maxTitleLen := width - 12 // Account for icon, ID, and spacing
+		// Truncate title to fit panel interior (width - border(2) - padding(2) - icon/ID/spacing(13))
+		maxTitleLen := width - 17
 		displayTitle := story.Title
 		if len(displayTitle) > maxTitleLen && maxTitleLen > 3 {
 			displayTitle = displayTitle[:maxTitleLen-3] + "..."
@@ -420,7 +420,7 @@ func (a *App) renderStoriesPanel(width, height int) string {
 		if i == a.selectedIndex {
 			// Pad line to full width to ensure background fills the entire row
 			lineWidth := lipgloss.Width(line)
-			targetWidth := width - 2
+			targetWidth := width - 4
 			if lineWidth < targetWidth {
 				line = line + strings.Repeat(" ", targetWidth-lineWidth)
 			}
@@ -439,7 +439,7 @@ func (a *App) renderStoriesPanel(width, height int) string {
 	}
 
 	// Progress bar
-	content.WriteString(DividerStyle.Render(strings.Repeat("─", width-2)))
+	content.WriteString(DividerStyle.Render(strings.Repeat("─", max(0, width-4))))
 	content.WriteString("\n")
 	progressBar := a.renderProgressBar(width - 4)
 	content.WriteString(progressBar)
