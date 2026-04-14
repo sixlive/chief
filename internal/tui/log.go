@@ -22,6 +22,7 @@ type LogEntry struct {
 	ToolInput map[string]interface{}
 	StoryID   string
 	FilePath  string // For Read tool results, stores the file path for syntax highlighting
+	IsReview  bool   // true when this entry came from the reviewer subagent
 
 	highlightedCode string   // Pre-computed syntax highlighted code (computed once on add)
 	cachedLines     []string // Pre-rendered output lines (invalidated on width change)
@@ -55,6 +56,7 @@ func (l *LogViewer) AddEvent(event loop.Event) {
 		Tool:      event.Tool,
 		ToolInput: event.ToolInput,
 		StoryID:   event.StoryID,
+		IsReview:  event.IsReview,
 	}
 
 	// Track Read tool file paths for syntax highlighting
@@ -77,7 +79,9 @@ func (l *LogViewer) AddEvent(event loop.Event) {
 	switch event.Type {
 	case loop.EventAssistantText, loop.EventToolStart, loop.EventToolResult,
 		loop.EventStoryDone, loop.EventComplete, loop.EventError, loop.EventRetrying,
-		loop.EventWatchdogTimeout:
+		loop.EventWatchdogTimeout,
+		loop.EventReviewStart, loop.EventReviewApproved, loop.EventReviewNeedsRevision,
+		loop.EventReviewEscalated, loop.EventReviewError:
 		// Pre-render and cache lines
 		if l.width > 0 {
 			entry.cachedLines = l.renderEntry(entry)
@@ -349,24 +353,79 @@ func (l *LogViewer) Render() string {
 
 // renderEntry renders a single log entry as lines.
 func (l *LogViewer) renderEntry(entry LogEntry) []string {
+	var lines []string
 	switch entry.Type {
 	case loop.EventToolStart:
-		return l.renderToolCard(entry)
+		lines = l.renderToolCard(entry)
 	case loop.EventToolResult:
-		return l.renderToolResult(entry)
+		lines = l.renderToolResult(entry)
 	case loop.EventStoryDone:
-		return l.renderStoryDone(entry)
+		lines = l.renderStoryDone(entry)
 	case loop.EventComplete:
-		return l.renderComplete(entry)
+		lines = l.renderComplete(entry)
 	case loop.EventError:
-		return l.renderError(entry)
+		lines = l.renderError(entry)
 	case loop.EventRetrying:
-		return l.renderRetrying(entry)
+		lines = l.renderRetrying(entry)
 	case loop.EventWatchdogTimeout:
-		return l.renderWatchdogTimeout(entry)
+		lines = l.renderWatchdogTimeout(entry)
+	case loop.EventReviewStart:
+		lines = l.renderReviewBanner(entry, "▸ Review started", PrimaryColor, "─")
+	case loop.EventReviewApproved:
+		lines = l.renderReviewBanner(entry, "✓ Review approved", SuccessColor, "─")
+	case loop.EventReviewNeedsRevision:
+		lines = l.renderReviewBanner(entry, "↻ Review: needs revision", WarningColor, "─")
+	case loop.EventReviewEscalated:
+		lines = l.renderReviewBanner(entry, "! Review escalated", ErrorColor, "═")
+	case loop.EventReviewError:
+		lines = l.renderError(entry)
 	default:
-		return l.renderText(entry)
+		lines = l.renderText(entry)
 	}
+	if entry.IsReview {
+		lines = prefixReviewGutter(lines)
+	}
+	return lines
+}
+
+// reviewGutter is the left-edge marker used to visually tag every line of
+// reviewer-originated output so the user can see at a glance that a stretch of
+// activity is the reviewer running, not the implementer.
+var reviewGutter = lipgloss.NewStyle().Foreground(PrimaryColor).Render("│ ")
+
+// prefixReviewGutter adds a colored vertical bar to the start of every line
+// so reviewer activity is visually distinct from implementer activity.
+func prefixReviewGutter(lines []string) []string {
+	out := make([]string, len(lines))
+	for i, line := range lines {
+		out[i] = reviewGutter + line
+	}
+	return out
+}
+
+// renderReviewBanner renders a full-width banner for review lifecycle events
+// (start / approved / needs revision / escalated). Falls back gracefully when
+// width has not yet been set.
+func (l *LogViewer) renderReviewBanner(entry LogEntry, label string, color lipgloss.Color, dividerChar string) []string {
+	labelStyle := lipgloss.NewStyle().Foreground(color).Bold(true).Padding(0, 1)
+	dividerStyle := lipgloss.NewStyle().Foreground(color)
+
+	width := l.width - 4
+	if width < 1 {
+		width = len(label)
+	}
+	divider := dividerStyle.Render(strings.Repeat(dividerChar, width))
+
+	lines := []string{"", divider, labelStyle.Render(label), divider}
+	if entry.Text != "" {
+		textStyle := lipgloss.NewStyle().Foreground(TextColor)
+		wrapped := wrapText(entry.Text, l.width-4)
+		for _, tl := range strings.Split(wrapped, "\n") {
+			lines = append(lines, textStyle.Render(tl))
+		}
+	}
+	lines = append(lines, "")
+	return lines
 }
 
 // renderText renders an assistant text entry.

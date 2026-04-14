@@ -92,6 +92,10 @@ type Event struct {
 	Err        error
 	RetryCount int // Current retry attempt (1-based)
 	RetryMax   int // Maximum retries allowed
+	// IsReview is true when this event originated from the reviewer subagent's
+	// stdout rather than the implementer. The TUI uses this to distinguish
+	// reviewer activity visually without interleaving it with implementer state.
+	IsReview bool
 }
 
 // streamMessage represents the top-level structure of a stream-json line.

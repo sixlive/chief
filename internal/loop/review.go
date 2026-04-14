@@ -216,10 +216,13 @@ func runReview(ctx context.Context, l *Loop, storyID, storyTitle, storyContext s
 }
 
 // scanReviewerOutput reads the reviewer agent's stdout line-by-line, logs it
-// with a [review] prefix so it's distinguishable from implementer output, and
-// updates the watchdog clock. The reviewer's events are intentionally NOT
-// emitted on the loop's main events channel — only the high-level review
-// lifecycle events are.
+// with a [review] prefix, updates the watchdog clock, and forwards parsed
+// events onto the loop's main events channel with IsReview=true so the TUI
+// can stream reviewer activity the same way it streams the implementer.
+//
+// EventStoryDone is filtered out — only the implementer's <chief-done/> should
+// drive the story-done state machine. EventIterationStart is also dropped so
+// the reviewer's system init doesn't confuse the iteration counter.
 func (l *Loop) scanReviewerOutput(r io.Reader, lastOutput *atomic.Int64) {
 	scanner := bufio.NewScanner(r)
 	buf := make([]byte, 0, 64*1024)
@@ -229,6 +232,20 @@ func (l *Loop) scanReviewerOutput(r io.Reader, lastOutput *atomic.Int64) {
 		line := scanner.Text()
 		lastOutput.Store(time.Now().UnixNano())
 		l.logLine("[review] " + line)
+
+		event := l.provider.ParseLine(line)
+		if event == nil {
+			continue
+		}
+		if event.Type == EventStoryDone || event.Type == EventIterationStart {
+			continue
+		}
+		l.mu.Lock()
+		event.Iteration = l.iteration
+		event.IsReview = true
+		event.StoryID = l.currentStoryID
+		l.mu.Unlock()
+		l.events <- *event
 	}
 }
 

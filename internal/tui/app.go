@@ -993,6 +993,26 @@ func (a App) handleLoopEvent(prdName string, event loop.Event) (tea.Model, tea.C
 		if isCurrentPRD {
 			a.lastActivity = event.Text
 		}
+	case loop.EventReviewStart:
+		if isCurrentPRD {
+			a.lastActivity = "Reviewing story..."
+		}
+	case loop.EventReviewApproved:
+		if isCurrentPRD {
+			a.lastActivity = "Review approved"
+		}
+	case loop.EventReviewNeedsRevision:
+		if isCurrentPRD {
+			a.lastActivity = "Review: needs revision"
+		}
+	case loop.EventReviewEscalated:
+		if isCurrentPRD {
+			a.lastActivity = "Review escalated"
+		}
+	case loop.EventReviewError:
+		if isCurrentPRD {
+			a.lastActivity = "Review error"
+		}
 	}
 
 	// Reload PRD from disk only on meaningful state changes (not every event)
