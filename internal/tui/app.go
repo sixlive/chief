@@ -1007,11 +1007,16 @@ func (a App) handleLoopEvent(prdName string, event loop.Event) (tea.Model, tea.C
 		}
 	case loop.EventReviewEscalated:
 		if isCurrentPRD {
+			a.state = StatePaused
 			a.lastActivity = "Review escalated"
 		}
 	case loop.EventReviewError:
 		if isCurrentPRD {
+			a.state = StatePaused
 			a.lastActivity = "Review error"
+			if event.Err != nil {
+				a.lastActivity = "Review error: " + event.Err.Error()
+			}
 		}
 	}
 
