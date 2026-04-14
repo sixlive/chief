@@ -88,7 +88,7 @@ func (a *App) renderStackedDashboard() string {
 
 	// Split height between stories (40%) and details (60%)
 	storiesHeight := max((contentHeight*40)/100, 5)
-	detailsHeight := contentHeight - storiesHeight - 1 // -1 for gap between panels
+	detailsHeight := max(contentHeight-storiesHeight-1, 0) // -1 for gap between panels
 
 	panelWidth := a.width - 2 // Account for borders
 
@@ -525,6 +525,9 @@ func (a *App) renderDetailsPanel(width, height int) string {
 
 	// Truncate content to fit panel height (lipgloss Height only sets minimum, not maximum)
 	contentStr := content.String()
+	if height < 0 {
+		height = 0
+	}
 	contentLines := strings.Split(contentStr, "\n")
 	if len(contentLines) > height {
 		contentLines = contentLines[:height]
